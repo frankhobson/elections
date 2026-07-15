@@ -1872,17 +1872,17 @@ if not leg_preds.empty:
 with diag_tab1:
     col_m1, col_m2, col_m3 = st.columns(3)
     with col_m1:
-        st.markdown("<div style='text-align: center; font-weight: bold; background-color: rgba(51, 101, 138, 0.1); padding: 5px; border-radius: 5px; color: #1E293B;'>Combined Metrics (All)</div>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align: center; font-weight: bold; background-color: #3A75A2; padding: 6px; border-radius: 6px; color: white;'>Combined Metrics (All)</div>", unsafe_allow_html=True)
         st.metric("OOS Accuracy (5-Fold CV)", f"{cv_accuracy:.2%}", help="Average accuracy across cross-validation folds")
         st.metric("OOS Log-Loss", f"{cv_logloss:.4f}", help="Ensemble cross-entropy error metric")
         st.metric("Tuned Temp (T)", f"{TUNED_PARAMS.get('ensemble_balance', {}).get('T', 0.70)}", help="Temperature parameter applied to GBDT probabilities")
     with col_m2:
-        st.markdown("<div style='text-align: center; font-weight: bold; background-color: rgba(242, 100, 25, 0.1); padding: 5px; border-radius: 5px; color: #1E293B;'>Executive</div>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align: center; font-weight: bold; background-color: #E05A1A; padding: 6px; border-radius: 6px; color: white;'>Executive</div>", unsafe_allow_html=True)
         st.metric("OOS Accuracy (5-Fold CV)", f"{exec_accuracy:.2%}", help="Average accuracy across executive elections")
         st.metric("OOS Log-Loss", f"{exec_logloss:.4f}", help="Ensemble cross-entropy error metric")
         st.metric("Tuned Temp (T)", f"{TUNED_PARAMS.get('executive_model', {}).get('T', 0.78)}", help="Temperature parameter applied to executive GBDT probabilities")
     with col_m3:
-        st.markdown("<div style='text-align: center; font-weight: bold; background-color: rgba(134, 187, 216, 0.1); padding: 5px; border-radius: 5px; color: #1E293B;'>Legislative (Congressional)</div>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align: center; font-weight: bold; background-color: #4A8EB6; padding: 6px; border-radius: 6px; color: white;'>Legislative (Congressional)</div>", unsafe_allow_html=True)
         st.metric("OOS Accuracy (5-Fold CV)", f"{leg_accuracy:.2%}", help="Average accuracy across legislative elections")
         st.metric("OOS Log-Loss", f"{leg_logloss:.4f}", help="Ensemble cross-entropy error metric")
         st.metric("Tuned Temp (T)", f"{TUNED_PARAMS.get('legislative_model', {}).get('T', 0.80)}", help="Temperature parameter applied to legislative GBDT probabilities")
