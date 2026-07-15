@@ -2405,7 +2405,8 @@ def predict_with_cascading(df, train_cutoff_year=None, conn=None, return_df=Fals
 # 6. Feature Importance Report
 def get_feature_importance_report(df, model_type="both"):
     """Train on known data and return ranked feature importances for a model type."""
-    df_known = df[df["target_outcome"].notna()].copy()
+    # Ensure we only train on actual historical elections with binary outcomes
+    df_known = df[(df["target_outcome"].notna()) & (df["target_outcome"].isin([0, 1, 0.0, 1.0]))].copy()
     if df_known.empty:
         return pd.DataFrame()
         
