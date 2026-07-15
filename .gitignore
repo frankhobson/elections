@@ -1,0 +1,35 @@
+# Virtual environment
+.venv/
+venv/
+ENV/
+
+# Python bytecode/caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Large Database & Ingestion Files
+elections.db
+elections.db-journal
+elections.db-wal
+elections.db-shm
+
+# Large raw datasets (gigabytes)
+raw_data/
+
+# Local cache info
+catboost_info/
+
+# Scratch files
+scratch/

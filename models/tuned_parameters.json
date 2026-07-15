@@ -1,0 +1,43 @@
+{
+    "contiguity_weights": {
+        "1": 1.0,
+        "2": 0.2,
+        "3": 0.0,
+        "4": 0.0,
+        "5": 0.0
+    },
+    "category_multipliers": {
+        "m_vdem": 1.0,
+        "m_prior": 1.0,
+        "m_gdelt": 1.5,
+        "m_spatial": 0.5,
+        "m_macro": 1.0
+    },
+    "cascade_parameters": {
+        "cascade_coeff": 0.3,
+        "ff_self": 0.15,
+        "ff_spatial": 0.15,
+        "ff_region": 0.1
+    },
+    "ensemble_balance": {
+        "xgb_weight": 0.5,
+        "T": 1.15
+    },
+    "model_parameters": {
+        "xgb_max_depth": 2,
+        "xgb_lr": 0.1,
+        "cb_depth": 3,
+        "cb_lr": 0.03
+    },
+    "executive_model": {
+        "xgb_weight": 0.5,
+        "T": 1.15,
+        "classification_threshold": 0.515
+    },
+    "legislative_model": {
+        "xgb_weight": 0.5,
+        "T": 1.15,
+        "classification_threshold": 0.515
+    },
+    "classification_threshold": 0.515
+}

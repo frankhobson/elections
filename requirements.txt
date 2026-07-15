@@ -1,0 +1,12 @@
+pandas
+numpy
+geopandas
+shapely
+libpysal
+esda
+statsmodels
+streamlit
+plotly
+scikit-learn
+xgboost
+pytest
