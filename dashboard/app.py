@@ -865,13 +865,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Load basic mappings and settings
-conn = get_connection()
-cursor = conn.cursor()
-cursor.execute("SELECT country_code, country_name, region FROM countries ORDER BY country_name;")
-countries_list = cursor.fetchall()
-c_names = pd.DataFrame(countries_list, columns=["country_code", "country_name", "region"])
-code_to_country = dict(zip(c_names["country_code"], c_names["country_name"]))
-conn.close()
+if cache_data is not None:
+    c_names = cache_data["c_names"]
+    code_to_country = dict(zip(c_names["country_code"], c_names["country_name"]))
+else:
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT country_code, country_name, region FROM countries ORDER BY country_name;")
+    countries_list = cursor.fetchall()
+    c_names = pd.DataFrame(countries_list, columns=["country_code", "country_name", "region"])
+    code_to_country = dict(zip(c_names["country_code"], c_names["country_name"]))
+    conn.close()
 
 import datetime
 

@@ -250,6 +250,9 @@ def main():
     print("Connecting to database...")
     conn = sqlite3.connect(DB_PATH)
     df = build_modeling_dataset(conn, include_upcoming=True)
+    cursor = conn.cursor()
+    cursor.execute("SELECT country_code, country_name, region FROM countries ORDER BY country_name;")
+    c_names = pd.DataFrame(cursor.fetchall(), columns=["country_code", "country_name", "region"])
     conn.close()
     
     print("Running cascading forecasts (predict_with_cascading)...")
@@ -304,7 +307,8 @@ def main():
         "ex_cb": ex_cb,
         "leg_xgb": leg_xgb,
         "leg_cb": leg_cb,
-        "preds": preds
+        "preds": preds,
+        "c_names": c_names
     }
     
     os.makedirs(os.path.dirname(CACHE_PATH), exist_ok=True)
