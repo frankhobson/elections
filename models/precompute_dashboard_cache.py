@@ -253,6 +253,20 @@ def main():
     cursor = conn.cursor()
     cursor.execute("SELECT country_code, country_name, region FROM countries ORDER BY country_name;")
     c_names = pd.DataFrame(cursor.fetchall(), columns=["country_code", "country_name", "region"])
+    
+    print("Generating historical V-Dem map data cache...")
+    query_map_all = """
+        SELECT c.country_code, c.country_name, c.latitude, c.longitude,
+               v.clean_elections_index, v.polyarchy_index, v.regime_type, v.year
+        FROM countries c
+        LEFT JOIN vdem_indicators v ON c.country_code = v.country_code
+        WHERE v.year >= 1990 AND v.year <= 2025;
+    """
+    cursor.execute(query_map_all)
+    vdem_map_data = pd.DataFrame(
+        cursor.fetchall(), 
+        columns=["country_code", "country_name", "latitude", "longitude", "clean_elections_index", "polyarchy_index", "regime_type", "year"]
+    )
     conn.close()
     
     print("Running cascading forecasts (predict_with_cascading)...")
@@ -308,7 +322,8 @@ def main():
         "leg_xgb": leg_xgb,
         "leg_cb": leg_cb,
         "preds": preds,
-        "c_names": c_names
+        "c_names": c_names,
+        "vdem_map_data": vdem_map_data
     }
     
     os.makedirs(os.path.dirname(CACHE_PATH), exist_ok=True)

@@ -104,6 +104,8 @@ def get_db_stats():
 
 @st.cache_data
 def load_cached_modeling_dataset(db_mtime):
+    if cache_data is not None:
+        return cache_data["df_modeling"]
     conn = get_connection()
     df = build_modeling_dataset(conn, include_upcoming=True)
     conn.close()
@@ -1688,15 +1690,19 @@ with meth_tab2:
     
     map_year = st.slider("Select Historical Year for V-Dem Map", 1990, 2025, 2020)
     
-    conn = get_connection()
-    query_map = """
-        SELECT c.country_code, c.country_name, c.latitude, c.longitude,
-               v.clean_elections_index, v.polyarchy_index, v.regime_type
-        FROM countries c
-        LEFT JOIN vdem_indicators v ON c.country_code = v.country_code AND v.year = ?;
-    """
-    df_map = pd.read_sql_query(query_map, conn, params=(map_year,))
-    conn.close()
+    if cache_data is not None:
+        v_data = cache_data["vdem_map_data"]
+        df_map = v_data[v_data["year"] == map_year].copy()
+    else:
+        conn = get_connection()
+        query_map = """
+            SELECT c.country_code, c.country_name, c.latitude, c.longitude,
+                   v.clean_elections_index, v.polyarchy_index, v.regime_type
+            FROM countries c
+            LEFT JOIN vdem_indicators v ON c.country_code = v.country_code AND v.year = ?;
+        """
+        df_map = pd.read_sql_query(query_map, conn, params=(map_year,))
+        conn.close()
     
     regime_map = {0: "Closed Autocracy", 1: "Electoral Autocracy", 2: "Electoral Democracy", 3: "Liberal Democracy"}
     df_map["Regime Type"] = df_map["regime_type"].map(regime_map).fillna("Unknown")
