@@ -113,11 +113,34 @@ def get_all_predictions(df, preds):
             df_known.loc[val_indices_global, "predicted_prob"] = p_ens_cal
             df_known.loc[val_indices_global, "predicted_outcome"] = (p_ens_cal >= leg_params["classification_threshold"]).astype(int)
             
+    df_known["confidence"] = df_known["predicted_prob"].apply(lambda p: max(p, 1 - p))
+    
+    # Map columns to match upcoming predictions dataframe
+    df_known_mapped = pd.DataFrame()
+    df_known_mapped["election_id"] = df_known["election_id"]
+    df_known_mapped["source"] = df_known["source"]
+    df_known_mapped["country_code"] = df_known["country_code"]
+    df_known_mapped["region"] = df_known["region"]
+    df_known_mapped["year"] = df_known["year"]
+    df_known_mapped["election_type"] = df_known["is_presidential"].map({1: "Executive", 0: "Legislative"})
+    df_known_mapped["is_scheduled"] = df_known["is_scheduled"]
+    df_known_mapped["clean_index"] = df_known["clean_index"]
+    df_known_mapped["gdp_growth"] = df_known.get("gdp_growth", np.nan)
+    df_known_mapped["raw_probability"] = df_known["predicted_prob"]
+    df_known_mapped["predicted_outcome"] = df_known["predicted_outcome"]
+    df_known_mapped["predicted_winner"] = df_known["predicted_outcome"].map({1: "Incumbent", 0: "Challenger"})
+    df_known_mapped["raw_confidence"] = df_known["confidence"]
+    df_known_mapped["data_completeness"] = df_known["data_completeness"]
+    df_known_mapped["adjusted_confidence"] = df_known["confidence"]
+    df_known_mapped["data_source_flags"] = df_known["data_source_flags"]
+    df_known_mapped["target_outcome"] = df_known["target_outcome"]
+    df_known_mapped["election_date"] = df_known.get("election_date", None)
+    
     # Combine with upcoming cascading predictions
     upcoming_part = preds.copy()
     
     # Combine
-    all_preds = pd.concat([df_known, upcoming_part], ignore_index=True)
+    all_preds = pd.concat([df_known_mapped, upcoming_part], ignore_index=True)
     return all_preds
 
 def evaluate_national_models_live(df):
