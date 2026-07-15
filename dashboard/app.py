@@ -561,6 +561,294 @@ FEATURE_METADATA = {
         "name": "Polarization * Party Fragmentation",
         "explanation": "Captures how high ideological polarization multiplies coalition-formation difficulty under fragmented legislatures."
     },
+    "is_scheduled": {
+        "name": "Scheduled Election Indicator",
+        "explanation": "Elections held on normal constitutional schedule. Unscheduled or snap elections usually indicate political crises or strategic timing by the incumbent."
+    },
+    "is_presidential": {
+        "name": "Executive Race Indicator",
+        "explanation": "Differentiates Executive from Legislative races. Executive elections are highly visible and subject to national economic retrospective voting."
+    },
+    "gdp_shock": {
+        "name": "GDP Growth Shock Margin",
+        "explanation": "Short-term economic contraction or expansion margin relative to trend. Negative shocks trigger strong retrospective voting backlash."
+    },
+    "inflation_shock": {
+        "name": "Price Inflation Shock",
+        "explanation": "Sudden rise in price inflation. Hurts household purchasing power and acts as an immediate trigger for voter anger."
+    },
+    "average_news_tone": {
+        "name": "National Media Tone Aggregate",
+        "explanation": "General sentiment in national media (GDELT). Positive tone correlates with incumbent satisfaction; negative tone favors challengers."
+    },
+    "opposition_boycott": {
+        "name": "Opposition Boycott Flag (NELDA)",
+        "explanation": "Pre-election opposition boycott indicator (NELDA). Signals extreme polarization, lack of legitimacy, or a skewed electoral field."
+    },
+    "monitors_present": {
+        "name": "International Monitors Present (NELDA)",
+        "explanation": "Presence of international election observers (NELDA). Promotes transparency and raises the cost of manipulation, aiding opposition competitiveness."
+    },
+    "protest_pressure": {
+        "name": "GDELT Civil Protest Salience",
+        "explanation": "Frequency of protest and civil unrest events (GDELT). Signals public discontent, governability issues, and eroding incumbent support."
+    },
+    "coop_score": {
+        "name": "Geopolitical Cooperation Score",
+        "explanation": "Ratio of cooperative to hostile events in media. Higher cooperation indicates stability and successful governance."
+    },
+    "conflict_level": {
+        "name": "GDELT Conflict Event Salience",
+        "explanation": "Frequency of internal social or political conflict events. High conflict raises uncertainty and voter anxiety."
+    },
+    "coercion_ratio": {
+        "name": "State Coercion Ratio",
+        "explanation": "Proportion of government events involving policing, arrests, or military coercion. Signals state repression or security instability."
+    },
+    "aid_ratio": {
+        "name": "International Development Aid Ratio",
+        "explanation": "International development aid or humanitarian events ratio. Higher external aid flows can stabilize vulnerable regimes."
+    },
+    "protest_velocity": {
+        "name": "Protest Acceleration (Velocity)",
+        "explanation": "Acceleration or momentum of civil protest events. Rapid spikes signal impending political crises and sudden drops in governability."
+    },
+    "conflict_velocity": {
+        "name": "Conflict Acceleration (Velocity)",
+        "explanation": "Acceleration of social conflict. Indicates rapid deterioration of the domestic security climate."
+    },
+    "total_news_volume": {
+        "name": "Total News Coverage Volume",
+        "explanation": "Total news media coverage volume. High news attention correlates with periods of high political stakes or active crises."
+    },
+    "gov_news_volume": {
+        "name": "Government Salience in News",
+        "explanation": "Relative media volume focusing on the governing coalition. Reflects incumbent media salience."
+    },
+    "opp_news_volume": {
+        "name": "Opposition Salience in News",
+        "explanation": "Relative media volume focusing on opposition parties. Reflects opposition voice and salience."
+    },
+    "gov_avg_tone": {
+        "name": "Government Average Coverage Tone",
+        "explanation": "Average news tone regarding the government. Positive tone indicates favorable coverage and administrative popularity."
+    },
+    "opp_avg_tone": {
+        "name": "Opposition Average Coverage Tone",
+        "explanation": "Average news tone regarding the opposition. Positive tone signals gaining momentum or sympathetic coverage."
+    },
+    "opp_gov_volume_ratio": {
+        "name": "Opposition-to-Government Media Volume Ratio",
+        "explanation": "Ratio of opposition to government media volume. Spikes indicate an active challenger voice taking over the national conversation."
+    },
+    "opp_gov_tone_diff": {
+        "name": "Opposition-to-Government Tone Difference",
+        "explanation": "Sentiment difference between opposition and government coverage. High positive values signal favorable challenger momentum relative to the incumbent."
+    },
+    "regional_challenger_tide": {
+        "name": "Regional Challenger Victory Tide",
+        "explanation": "Incumbent defeat rate in regional neighbors over the last 12 months. Signals regional waves of political change."
+    },
+    "global_challenger_tide": {
+        "name": "Global Challenger Victory Tide",
+        "explanation": "Worldwide incumbent defeat rate. Captures global waves of political alternation or economic discontent."
+    },
+    "global_economic_shock": {
+        "name": "Global Economic Distress Index",
+        "explanation": "Global macroeconomic shock index. External economic stress triggers concurrent anti-incumbent voting globally."
+    },
+    "incumbent_term_count": {
+        "name": "Incumbent Leader Terms Served",
+        "explanation": "Number of consecutive terms the incumbent leader/party has served. Higher term counts accumulate fatigue and succession friction."
+    },
+    "prior_turnout": {
+        "name": "Electoral Turnout Rate (Prior Election)",
+        "explanation": "Voter turnout rate in the previous election. Signals base mobilization or historical voter engagement."
+    },
+    "prior_margin_of_victory": {
+        "name": "Incumbent Margin of Victory (Prior Election)",
+        "explanation": "Incumbent margin of victory in the prior election. Thin prior margins make the incumbent highly vulnerable to small swings."
+    },
+    "prior_effective_parties": {
+        "name": "Effective Legislative Parties (Prior Election)",
+        "explanation": "Effective number of legislative parties (CLEA). Measures parliamentary fragmentation and coalition complexity."
+    },
+    "prior_incumbent_seat_share": {
+        "name": "Incumbent Seat Share Margin (Prior Election)",
+        "explanation": "Percentage of legislative seats won by the incumbent in the prior cycle. Higher seat shares indicate stable legislative control."
+    },
+    "prior_margin_presidential_interaction": {
+        "name": "Prior Margin * Executive Interaction",
+        "explanation": "Prior victory margin interacted with executive race indicator. Thin prior executive margins are primary challenger targets."
+    },
+    "oil_price_shock": {
+        "name": "Global Crude Oil Price Shock",
+        "explanation": "Percentage change in global brent crude oil prices. Affects fuel costs, energy inflation, and trade balances globally."
+    },
+    "oil_exporter_shock": {
+        "name": "Oil Shock * Exporter Interaction",
+        "explanation": "Oil price shocks interacted with net oil exporter status. Windfall revenues help exporter incumbents; import costs penalize importers."
+    },
+    "fed_rate_change": {
+        "name": "US Federal Reserve Rate Shift",
+        "explanation": "12-month change in the US Federal Reserve federal funds rate. Drives global capital flows, debt-servicing costs, and currency pressure."
+    },
+    "us_president_ideology": {
+        "name": "US Administration Ideology Alignment",
+        "explanation": "Political ideology of the US President. Affects global alignment, foreign aid priorities, and trade regimes."
+    },
+    "currency_depreciation_12mo": {
+        "name": "12-Month Currency Depreciation",
+        "explanation": "12-month change in the exchange rate. Long-term depreciation erodes real wages and signals persistent economic mismanagement."
+    },
+    "economy_regime_interaction": {
+        "name": "GDP Growth * Regime Type",
+        "explanation": "GDP growth interacted with regime democracy level. Democratic voters are more prone to punish economic distress than autocratic voters."
+    },
+    "protest_regime_interaction": {
+        "name": "Protest Velocity * Regime Type",
+        "explanation": "Protest velocity interacted with regime democracy level. Autocrats often suppress protest signals, while democrats suffer immediate electoral costs."
+    },
+    "term_fatigue_economy_interaction": {
+        "name": "Years in Power * GDP Growth Interaction",
+        "explanation": "Governing years interacted with GDP growth. Multiplies the penalty of economic recessions on long-serving coalitions."
+    },
+    "last_alt_incumbent_won": {
+        "name": "Last Alternation Incumbent Victory Indicator",
+        "explanation": "Indicator of whether the incumbent party won the last alternation election. Signals historical resistance to change."
+    },
+    "last_alt_margin": {
+        "name": "Last Alternation Electoral Margin",
+        "explanation": "Electoral margin in the last alternation election. Reflects baseline partisan divisions in the country."
+    },
+    "months_since_last_alt": {
+        "name": "Time Elapsed Since Last Alternation",
+        "explanation": "Time elapsed since the last power alternation. Long periods without alternation can lead to pent-up challenger demands."
+    },
+    "government_type_majority": {
+        "name": "Majority Government Cabinet Setup",
+        "explanation": "Flag for single-party legislative majority. Typically provides stable cabinet control and clear accountability."
+    },
+    "government_type_minority": {
+        "name": "Minority Government Cabinet Setup",
+        "explanation": "Flag for minority government. Highly vulnerable to legislative deadlock, censure votes, and early collapses."
+    },
+    "government_type_coalition": {
+        "name": "Coalition Government Cabinet Setup",
+        "explanation": "Flag for multi-party coalition government. Subject to internal friction, compromise failures, and joint accountability decay."
+    },
+    "cabinet_reshuffles_current_term": {
+        "name": "Cabinet Member Reshuffles Count",
+        "explanation": "Number of times cabinet members were reshuffled. High turnover indicates internal division, governance crises, or cabinet weakness."
+    },
+    "coalition_size": {
+        "name": "Governing Coalition Size (Veto Players)",
+        "explanation": "Number of parties in the governing coalition. Larger sizes raise coordination friction and veto players (Tsebelis, 2002)."
+    },
+    "coalition_fragmentation": {
+        "name": "Governing Cabinet fragmentation",
+        "explanation": "Ideological or seat-share fragmentation within the cabinet. Unstable fragmentations raise the risk of early elections."
+    },
+    "democratic_age": {
+        "name": "Democracy Age (Years since transition)",
+        "explanation": "Years since transition to democratic governance. Older democracies have institutionalized parties and stable voting habits."
+    },
+    "electoral_volatility_10yr": {
+        "name": "10-Year Historical Electoral Volatility",
+        "explanation": "Electoral volatility over the last 10 years. Higher volatility signals loose partisan attachments and swing-voter dominance."
+    },
+    "electoral_volatility_20yr": {
+        "name": "20-Year Historical Electoral Volatility",
+        "explanation": "Electoral volatility over the last 20 years. Reflects long-term system stability and party consolidation."
+    },
+    "electoral_volatility_change": {
+        "name": "Electoral Volatility Acceleration Index",
+        "explanation": "10-year volatility relative to 20-year baseline. Accelerating volatility signals collapsing party systems."
+    },
+    "pedersen_index": {
+        "name": "Pedersen Electoral Volatility Index",
+        "explanation": "Pedersen electoral volatility index from the last cycle. Direct measure of net seat shifts between parties."
+    },
+    "inflation_acceleration": {
+        "name": "Price Inflation Acceleration Rate",
+        "explanation": "Rate of change in price inflation. Rapidly accelerating inflation triggers acute voter alarm and economic anxiety."
+    },
+    "gdp_growth_acceleration": {
+        "name": "GDP Growth Acceleration Rate",
+        "explanation": "Rate of change in GDP growth. Accelerating growth rewards incumbents, while slowing growth signals impending stagnation."
+    },
+    "unemployment_acceleration": {
+        "name": "Unemployment Acceleration Rate",
+        "explanation": "Rate of change in unemployment rate. Rising unemployment is a powerful predictor of incumbent defeat (Lewis-Beck, 1988)."
+    },
+    "real_wage_growth": {
+        "name": "Real Wage Growth Index",
+        "explanation": "Year-over-year change in consumer-price-adjusted wages. Directly determines voter household well-being and retrospective support."
+    },
+    "migration_shock": {
+        "name": "Net Migration Inflow Shock",
+        "explanation": "Sudden net migration inflow spikes. Can trigger public resource strain or domestic political controversies."
+    },
+    "refugee_inflow_shock": {
+        "name": "Refugee Inflow Shock Margin",
+        "explanation": "Rapid change in refugee inflows per capita. Can lead to fiscal strain and security concerns, boosting challenger nationalistic rhetoric."
+    },
+    "government_sentiment_score": {
+        "name": "Media Sentiment on Government Action",
+        "explanation": "Media tone aggregated specifically around government figures. Reflects public relations momentum."
+    },
+    "government_corruption_events": {
+        "name": "GDELT Corruption Scandal Count",
+        "explanation": "GDELT event count of corruption scandals. Directly erodes governing party moral authority and institutional trust."
+    },
+    "government_corruption_ratio": {
+        "name": "Corruption Scandal News Ratio",
+        "explanation": "Corruption events relative to total government news. Signals the salience of scandal in the national psyche."
+    },
+    "government_news_salience": {
+        "name": "Government Media Salience Volume",
+        "explanation": "Media coverage volume focusing on government action. High salience indicates active political crises or intense scrutiny."
+    },
+    "government_media_balance": {
+        "name": "Government Positive-to-Negative media balance",
+        "explanation": "Ratio of positive to negative news tones regarding the administration. Directly measures press favoritism or hostility."
+    },
+    "global_inflation_pressure": {
+        "name": "Global Price Inflation Stress Margin",
+        "explanation": "Global average inflation rate. Acts as an external constraint on domestic pricing stability."
+    },
+    "global_energy_pressure": {
+        "name": "Global Fuel & Energy Price Pressure",
+        "explanation": "Global energy index. Drives domestic fuel costs and energy supply constraints."
+    },
+    "global_migration_pressure": {
+        "name": "Global Displacement Pressure waves",
+        "explanation": "Global displacement and migration wave aggregates. Signals regional and global humanitarian shifts."
+    },
+    "global_democratic_backsliding": {
+        "name": "Global Autocratization Wave Index",
+        "explanation": "Global rate of democratic score declines. Captures international waves of autocratization or backsliding."
+    },
+    "global_incumbent_punishment_index": {
+        "name": "Global Anti-Establishment Punishment Tide",
+        "explanation": "Average global incumbent defeat rate. Reflects global wave effects of anti-incumbent sentiment."
+    },
+    "latent_global_political_climate": {
+        "name": "Global Political Climate Latent Index (PCA)",
+        "explanation": "First principal component of global political indicators. Represents global democratic trends vs autocratization cycles."
+    },
+    "latent_global_economic_anxiety": {
+        "name": "Global Economic Anxiety Latent Index (PCA)",
+        "explanation": "First principal component of global economic stresses. Represents global stagflation and currency crises cycles."
+    },
+    "latent_global_anti_incumbent_index": {
+        "name": "Global Anti-Incumbent Sentiment Latent Index",
+        "explanation": "Latent global index of incumbent defeat pressure. Captures global waves of anti-establishment voter alignment."
+    },
+    "latent_global_democracy_trend": {
+        "name": "Global Democracy Trend Latent Index",
+        "explanation": "Latent global trend of institutional democracy levels."
+    },
 }
 
 def get_feature_info(feature_name):
