@@ -1055,16 +1055,16 @@ st.markdown("""
         margin-bottom: 2rem;
     }
     
-    .showcase-card {
+    div[data-testid="stVerticalBlockBordered"] {
         background: #FFFFFF;
         border: 1px solid #E2E8F0;
-        border-radius: 20px;
-        padding: 1.25rem;
+        border-radius: 20px !important;
+        padding: 1.25rem !important;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.01);
         text-align: center;
         transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
-    .showcase-card:hover {
+    div[data-testid="stVerticalBlockBordered"]:hover {
         border-color: #3b82f6;
         transform: translateY(-4px);
         box-shadow: 0 12px 30px rgba(59, 130, 246, 0.05);
@@ -1097,22 +1097,29 @@ st.markdown("""
         color: #1E293B !important;
         line-height: 1.4;
     }
+    .card-details {
+        font-size: 0.8rem;
+        line-height: 1.4;
+        text-align: center;
+        color: #475569;
+        margin-top: 10px;
+    }
     
     /* Dark Mode Overrides */
     @media (prefers-color-scheme: dark) {
         .stApp {
-            background-color: #0B0F19 !important;
-            color: #E2E8F0 !important;
+            background-color: #090D16 !important;
+            color: #F8FAFC !important;
         }
         .sticky-nav {
-            background: rgba(11, 15, 25, 0.90);
-            border-bottom: 1px solid rgba(226, 232, 240, 0.08);
+            background: rgba(9, 13, 22, 0.90);
+            border-bottom: 1px solid rgba(248, 250, 252, 0.08);
         }
         .nav-brand {
             color: #F8FAFC;
         }
         .nav-links a {
-            color: #94A3B8;
+            color: #CBD5E1;
         }
         .nav-links a:hover {
             color: #60a5fa;
@@ -1125,30 +1132,33 @@ st.markdown("""
             color: #F8FAFC;
         }
         .section-subheader {
-            color: #94A3B8;
+            color: #CBD5E1;
         }
         .kpi-card {
             background: #1f2937;
             border-color: #374151;
         }
         .kpi-title {
-            color: #94A3B8;
+            color: #CBD5E1;
         }
         .kpi-value {
             color: #F8FAFC;
         }
         .kpi-desc {
-            color: #94A3B8;
+            color: #CBD5E1;
         }
-        .showcase-card {
-            background: #111827;
-            border-color: #1f2937;
+        div[data-testid="stVerticalBlockBordered"] {
+            background: #111827 !important;
+            border-color: #1f2937 !important;
         }
         .showcase-country {
             color: #F8FAFC;
         }
         .card-text {
-            color: #E2E8F0 !important;
+            color: #F8FAFC !important;
+        }
+        .card-details {
+            color: #CBD5E1 !important;
         }
     }
 </style>
@@ -1195,8 +1205,8 @@ def render_plotly_gauge(prob, winner, country_name, year, election_type):
         number={'suffix': "%", 'font': {'family': 'Outfit', 'size': 26, 'weight': 'bold', 'color': bar_color}}
     ))
     fig.update_layout(
-        height=130,
-        margin=dict(l=10, r=10, t=10, b=10),
+        height=150,
+        margin=dict(l=15, r=15, t=10, b=10),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font={'family': "Inter"}
@@ -1333,22 +1343,23 @@ for i, (c_code, yr, el_type) in enumerate(showcase_elections):
             badge_class = "badge-incumbent" if winner == "Incumbent" else "badge-challenger"
             fig_gauge = render_plotly_gauge(prob, winner, c_name, yr, el_type)
             
-            st.markdown(
-                f"<div class='showcase-card'>"
-                f"<div class='showcase-country'>🗳️ {c_name}</div>"
-                f"<div style='font-size: 0.75rem; color: #64748B; margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;'>{yr} • {el_type}</div>"
-                f"<span class='showcase-badge {badge_class}'>Projected: {winner}</span>",
-                unsafe_allow_html=True
-            )
-            st.plotly_chart(fig_gauge, width="stretch", key=f"gauge_{c_code}_{yr}")
-            st.markdown(
-                f"<div class='card-text' style='font-size: 0.8rem; line-height: 1.4; text-align: center; color: gray;'>"
-                f"Confidence: <b>{conf:.1%}</b><br/>"
-                f"Data Quality: <b>{quality:.1%}</b>"
-                f"</div>"
-                f"</div>",
-                unsafe_allow_html=True
-            )
+            with st.container(border=True):
+                st.markdown(
+                    f"<div style='text-align: center;'>"
+                    f"<div class='showcase-country'>🗳️ {c_name}</div>"
+                    f"<div style='font-size: 0.75rem; color: #64748B; margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;'>{yr} • {el_type}</div>"
+                    f"<span class='showcase-badge {badge_class}'>Projected: {winner}</span>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+                st.plotly_chart(fig_gauge, use_container_width=True, key=f"gauge_{c_code}_{yr}")
+                st.markdown(
+                    f"<div class='card-details'>"
+                    f"Confidence: <b>{conf:.1%}</b><br/>"
+                    f"Data Quality: <b>{quality:.1%}</b>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
         else:
             st.info(f"Showcase data for {c_code} {yr} not found.")
 
