@@ -21,6 +21,9 @@ export const MethodologySection: React.FC = () => {
     fetchFeatureImportances().then(setImportances).catch(console.error);
   }, []);
 
+  const validVdem = vdemData.filter((d) => d.clean_elections_index !== null);
+  const nullVdem = vdemData.filter((d) => d.clean_elections_index === null);
+
   return (
     <div id="methodology-section" className="section-container space-y-6">
       <h3 className="section-header">💡 Model Methodology &amp; Explainer</h3>
@@ -118,10 +121,10 @@ export const MethodologySection: React.FC = () => {
                 {
                   type: 'choropleth',
                   locationmode: 'ISO-3',
-                  locations: vdemData.map((d) => d.country_code),
-                  z: vdemData.map((d) => (d.clean_elections_index !== null ? d.clean_elections_index : 0)),
-                  hovertext: vdemData.map((d) => d.country_name),
-                  customdata: vdemData.map((d) => [
+                  locations: validVdem.map((d) => d.country_code),
+                  z: validVdem.map((d) => d.clean_elections_index as number),
+                  hovertext: validVdem.map((d) => d.country_name),
+                  customdata: validVdem.map((d) => [
                     d.regime_name,
                     d.clean_elections_index !== null ? d.clean_elections_index.toFixed(3) : 'N/A',
                     d.polyarchy_index !== null ? d.polyarchy_index.toFixed(3) : 'N/A',
@@ -131,7 +134,11 @@ export const MethodologySection: React.FC = () => {
                     'Regime Type: <b>%{customdata[0]}</b><br>' +
                     'Clean Elections Index: <b>%{customdata[1]}</b><br>' +
                     'Polyarchy Index: <b>%{customdata[2]}</b><extra></extra>',
-                  colorscale: 'RdYlGn',
+                  colorscale: [
+                    [0.0, '#dc2626'], // Red (0.0 = Autocracy / Unclean)
+                    [0.5, '#eab308'], // Yellow (0.5 = Moderate)
+                    [1.0, '#16a34a'], // Green (1.0 = Clean Liberal Democracy)
+                  ],
                   zmin: 0.0,
                   zmax: 1.0,
                   colorbar: {
@@ -139,6 +146,24 @@ export const MethodologySection: React.FC = () => {
                     tickformat: '.2f',
                     len: 0.8,
                   },
+                },
+                {
+                  type: 'choropleth',
+                  locationmode: 'ISO-3',
+                  locations: nullVdem.map((d) => d.country_code),
+                  z: nullVdem.map(() => 0.5),
+                  colorscale: [
+                    [0, '#cbd5e1'],
+                    [1, '#cbd5e1'],
+                  ],
+                  showscale: false,
+                  hovertext: nullVdem.map((d) => d.country_name),
+                  customdata: nullVdem.map((d) => [d.regime_name, 'N/A', 'N/A']),
+                  hovertemplate:
+                    '<b>%{hovertext}</b><br><br>' +
+                    'Regime Type: <b>%{customdata[0]}</b><br>' +
+                    'Clean Elections Index: <b>N/A</b><br>' +
+                    '<i>(No V-Dem Data)</i><extra></extra>',
                 },
               ]}
               layout={{
