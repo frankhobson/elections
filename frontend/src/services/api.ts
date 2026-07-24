@@ -153,33 +153,33 @@ let shapMapCache: Record<string, ShapResponse> | null = null;
 let vdemMapCache: Record<number, VdemMapRecord[]> | null = null;
 
 export const fetchStats = async (): Promise<StatsResponse> => {
-  const res = await axios.get<StatsResponse>('/data/stats.json');
+  const res = await axios.get<StatsResponse>('./data/stats.json');
   return res.data;
 };
 
 export const fetchUpcoming = async (): Promise<UpcomingElection[]> => {
-  const res = await axios.get<UpcomingElection[]>('/data/upcoming.json');
+  const res = await axios.get<UpcomingElection[]>('./data/upcoming.json');
   return res.data;
 };
 
 export const fetchHistorical = async (): Promise<HistoricalElection[]> => {
-  const res = await axios.get<HistoricalElection[]>('/data/historical.json');
+  const res = await axios.get<HistoricalElection[]>('./data/historical.json');
   return res.data;
 };
 
 export const fetchCountryAccuracy = async (): Promise<CountryAccuracy[]> => {
-  const res = await axios.get<CountryAccuracy[]>('/data/country_accuracy.json');
+  const res = await axios.get<CountryAccuracy[]>('./data/country_accuracy.json');
   return res.data;
 };
 
 export const fetchDiagnostics = async (): Promise<DiagnosticsResponse> => {
-  const res = await axios.get<DiagnosticsResponse>('/data/model_diagnostics.json');
+  const res = await axios.get<DiagnosticsResponse>('./data/model_diagnostics.json');
   return res.data;
 };
 
 export const fetchShapExplanation = async (electionId: string): Promise<ShapResponse> => {
   if (!shapMapCache) {
-    const res = await axios.get<Record<string, ShapResponse>>('/data/shap_explanations.json');
+    const res = await axios.get<Record<string, ShapResponse>>('./data/shap_explanations.json');
     shapMapCache = res.data;
   }
   const match = shapMapCache[electionId];
@@ -191,13 +191,13 @@ export const fetchShapExplanation = async (electionId: string): Promise<ShapResp
 
 export const fetchVdemMap = async (year: number): Promise<VdemMapRecord[]> => {
   if (!vdemMapCache) {
-    const res = await axios.get<Record<number, VdemMapRecord[]>>('/data/vdem_map.json');
+    const res = await axios.get<Record<number, VdemMapRecord[]>>('./data/vdem_map.json');
     vdemMapCache = res.data;
   }
   return vdemMapCache[year] || [];
 };
 
 export const fetchFeatureImportances = async (): Promise<FeatureImportanceRecord[]> => {
-  const res = await axios.get<FeatureImportanceRecord[]>('/data/feature_importances.json');
+  const res = await axios.get<FeatureImportanceRecord[]>('./data/feature_importances.json');
   return res.data;
 };
