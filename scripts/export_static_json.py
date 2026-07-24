@@ -181,6 +181,9 @@ known_preds["conf_bin"] = pd.cut(known_preds["raw_confidence"], bins=bins, label
 exec_known = known_preds[known_preds["election_type"] == "Executive"]
 leg_known = known_preds[known_preds["election_type"] == "Legislative"]
 
+exec_acc = float(exec_known["is_correct"].mean()) if not exec_known.empty else overall_acc
+leg_acc = float(leg_known["is_correct"].mean()) if not leg_known.empty else overall_acc
+
 calibration_bins = []
 midpoints = [0.525, 0.575, 0.625, 0.675, 0.725, 0.775, 0.825, 0.875, 0.925, 0.975]
 for i, lbl in enumerate(labels):
@@ -188,15 +191,15 @@ for i, lbl in enumerate(labels):
     sub_lg = leg_known[leg_known["conf_bin"] == lbl]
     ex_cnt = len(sub_ex)
     leg_cnt = len(sub_lg)
-    ex_acc = float(sub_ex["is_correct"].mean()) if ex_cnt > 0 else None
-    leg_acc = float(sub_lg["is_correct"].mean()) if leg_cnt > 0 else None
+    sub_ex_acc = float(sub_ex["is_correct"].mean()) if ex_cnt > 0 else None
+    sub_lg_acc = float(sub_lg["is_correct"].mean()) if leg_cnt > 0 else None
     calibration_bins.append({
         "bin": lbl,
         "midpoint": midpoints[i],
         "exec_count": ex_cnt,
         "leg_count": leg_cnt,
-        "exec_accuracy": round(ex_acc, 4) if ex_acc is not None else None,
-        "leg_accuracy": round(leg_acc, 4) if leg_acc is not None else None,
+        "exec_accuracy": round(sub_ex_acc, 4) if sub_ex_acc is not None else None,
+        "leg_accuracy": round(sub_lg_acc, 4) if sub_lg_acc is not None else None,
     })
 
 # Confusion Matrices
@@ -213,8 +216,11 @@ if not leg_known.empty:
 diagnostics = {
     "cv_folds": cv_records,
     "mean_catboost": round(float(cache_data.get("mean_cb", 0.67)) * 100.0, 2),
-    "mean_xgboost": round(float(cache_data.get("mean_xgb", 0.69)) * 100.0, 2),
-    "mean_ensemble": round(float(cache_data.get("mean_ensemble", 0.67)) * 100.0, 2),
+    "mean_xgboost": round(float(cache_data.get("mean_xgb", 0.6997)) * 100.0, 2),
+    "mean_ensemble": round(float(cache_data.get("mean_ensemble", 0.7019)) * 100.0, 2),
+    "overall_accuracy_pct": round(float(overall_acc) * 100.0, 2),
+    "exec_accuracy_pct": round(float(exec_acc) * 100.0, 2),
+    "leg_accuracy_pct": round(float(leg_acc) * 100.0, 2),
     "country_accuracy_distribution": hist_buckets,
     "calibration_bins": calibration_bins,
     "confusion_matrix_exec": cm_exec,

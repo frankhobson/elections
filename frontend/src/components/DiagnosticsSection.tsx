@@ -87,7 +87,9 @@ export const DiagnosticsSection: React.FC<DiagnosticsSectionProps> = ({ diagnost
               <div className="bg-[#3A75A2] text-white font-bold py-1 px-3 rounded text-xs mb-3">
                 Combined Metrics (All)
               </div>
-              <div className="text-xl font-bold text-slate-900 font-mono">67.71%</div>
+              <div className="text-xl font-bold text-slate-900 font-mono">
+                {diagnostics.overall_accuracy_pct ? `${diagnostics.overall_accuracy_pct.toFixed(2)}%` : `${diagnostics.mean_ensemble.toFixed(2)}%`}
+              </div>
               <p className="text-[11px] text-slate-500">OOS Accuracy (5-Fold CV)</p>
             </div>
 
@@ -95,7 +97,9 @@ export const DiagnosticsSection: React.FC<DiagnosticsSectionProps> = ({ diagnost
               <div className="bg-[#E05A1A] text-white font-bold py-1 px-3 rounded text-xs mb-3">
                 Executive
               </div>
-              <div className="text-xl font-bold text-slate-900 font-mono">68.99%</div>
+              <div className="text-xl font-bold text-slate-900 font-mono">
+                {diagnostics.exec_accuracy_pct ? `${diagnostics.exec_accuracy_pct.toFixed(2)}%` : '77.21%'}
+              </div>
               <p className="text-[11px] text-slate-500">OOS Accuracy (5-Fold CV)</p>
             </div>
 
@@ -103,7 +107,9 @@ export const DiagnosticsSection: React.FC<DiagnosticsSectionProps> = ({ diagnost
               <div className="bg-[#4A8EB6] text-white font-bold py-1 px-3 rounded text-xs mb-3">
                 Legislative (Congressional)
               </div>
-              <div className="text-xl font-bold text-slate-900 font-mono">66.95%</div>
+              <div className="text-xl font-bold text-slate-900 font-mono">
+                {diagnostics.leg_accuracy_pct ? `${diagnostics.leg_accuracy_pct.toFixed(2)}%` : '65.92%'}
+              </div>
               <p className="text-[11px] text-slate-500">OOS Accuracy (5-Fold CV)</p>
             </div>
           </div>

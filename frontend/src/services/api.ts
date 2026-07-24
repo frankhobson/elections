@@ -100,6 +100,9 @@ export interface DiagnosticsResponse {
   mean_catboost: number;
   mean_xgboost: number;
   mean_ensemble: number;
+  overall_accuracy_pct?: number;
+  exec_accuracy_pct?: number;
+  leg_accuracy_pct?: number;
   country_accuracy_distribution: Array<{
     bin: string;
     count: number;
