@@ -1,0 +1,62 @@
+[
+  {
+    "feature": "constitutional_rigidity",
+    "human_name": "Constitutional Rigidity Index",
+    "importance": 0.0606,
+    "explanation": "Judicial and legislative institutional constraints (Tsebelis, 2002)."
+  },
+  {
+    "feature": "polyarchy_index",
+    "human_name": "Polyarchy Electoral Democracy Index",
+    "importance": 0.0402,
+    "explanation": "Electoral competitiveness and civil liberties benchmark."
+  },
+  {
+    "feature": "is_open_seat",
+    "human_name": "Open Seat Succession Election",
+    "importance": 0.0347,
+    "explanation": "Elections where the standing chief executive does not run (Jalalzai, 2013)."
+  },
+  {
+    "feature": "successor_run",
+    "human_name": "Hand-Picked Successor Running",
+    "importance": 0.0334,
+    "explanation": "Elections where the incumbent party fields a designated successor."
+  },
+  {
+    "feature": "incumbent_seat_buffer",
+    "human_name": "Incumbent Seat Share Buffer",
+    "importance": 0.0312,
+    "explanation": "Incumbent seat share margin above majority threshold (50%)."
+  },
+  {
+    "feature": "legislative_productivity",
+    "human_name": "Legislative Efficiency Proxy",
+    "importance": 0.0266,
+    "explanation": "Institutional legislative throughput indicator."
+  },
+  {
+    "feature": "government_continuity_score",
+    "human_name": "Government Continuity Score",
+    "importance": 0.0254,
+    "explanation": "Institutional and macroeconomic predictive indicator."
+  },
+  {
+    "feature": "clean_index",
+    "human_name": "Clean Index",
+    "importance": 0.0234,
+    "explanation": "Institutional and macroeconomic predictive indicator."
+  },
+  {
+    "feature": "government_years_in_power",
+    "human_name": "Government Years In Power",
+    "importance": 0.0228,
+    "explanation": "Institutional and macroeconomic predictive indicator."
+  },
+  {
+    "feature": "last_alt_incumbent_won",
+    "human_name": "Last Alt Incumbent Won",
+    "importance": 0.0198,
+    "explanation": "Institutional and macroeconomic predictive indicator."
+  }
+]

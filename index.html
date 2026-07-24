@@ -1,112 +1,14 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Global Election Forecaster</title>
-    
-    <!-- SEO Meta Tags -->
-    <meta name="description" content="An advanced predictive dashboard modeling global election outcomes using structural V-Dem indicators, pre-election checklists, and GDELT media sentiment analysis.">
-    <meta name="keywords" content="elections, predictions, GDELT, V-Dem, machine learning, forecasting">
-    <meta name="author" content="Frank Hobson">
-    
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://frankhobson.github.io/elections/">
-    <meta property="og:title" content="Global Election Forecaster">
-    <meta property="og:description" content="An advanced predictive dashboard modeling global election outcomes using structural V-Dem indicators, pre-election checklists, and GDELT media sentiment analysis.">
-    
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
-    
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        html, body {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #0F172A;
-            font-family: 'Inter', sans-serif;
-            color: #F8FAFC;
-        }
-        
-        /* Loading Overlay */
-        .loader-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            background-color: #0F172A;
-            z-index: 10;
-            transition: opacity 0.5s ease;
-        }
-        
-        .loader-brand {
-            font-family: 'Outfit', sans-serif;
-            font-size: 2rem;
-            font-weight: 700;
-            margin-bottom: 24px;
-            letter-spacing: -0.025em;
-            background: linear-gradient(135deg, #38BDF8 0%, #818CF8 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        
-        .spinner {
-            width: 48px;
-            height: 48px;
-            border: 4px solid rgba(255, 255, 255, 0.1);
-            border-top-color: #38BDF8;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        /* Fullscreen Iframe */
-        iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            position: absolute;
-            top: 0;
-            left: 0;
-            background-color: #0F172A;
-        }
-    </style>
-</head>
-<body>
-    <div class="loader-container" id="loader">
-        <div class="loader-brand">Global Election Forecaster</div>
-        <div class="spinner"></div>
-    </div>
-    
-    <iframe 
-        id="streamlit-app"
-        src="https://global-election-predictions.streamlit.app/?embed=true" 
-        allow="clipboard-write"
-        onload="hideLoader()">
-    </iframe>
-
-    <script>
-        function hideLoader() {
-            const loader = document.getElementById('loader');
-            loader.style.opacity = 0;
-            setTimeout(() => {
-                loader.style.display = 'none';
-            }, 500);
-        }
-    </script>
-</body>
+    <script type="module" crossorigin src="/assets/index-CfKIDWy6.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DVU0hiVR.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
 </html>
