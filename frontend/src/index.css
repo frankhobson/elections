@@ -1,0 +1,223 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Inter:wght@300;400;500;600&display=swap');
+
+@layer base {
+  body {
+    background-color: #F8FAFC;
+    color: #1E293B;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+/* Hide scrollbars for slick look */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Sticky Navigation Header matching app.py .sticky-nav */
+.sticky-nav {
+  position: sticky;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  padding: 14px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 9999;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.03);
+}
+
+.nav-brand {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0F172A;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-links {
+  display: flex;
+  gap: 24px;
+}
+
+.nav-links button {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #475569;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s, transform 0.2s;
+}
+
+.nav-links button:hover, .nav-links button.active {
+  color: #3b82f6;
+}
+
+/* Hero Section Container matching app.py .hero-container */
+.hero-container {
+  background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
+  border-radius: 24px;
+  padding: 3rem;
+  color: white;
+  margin-bottom: 2rem;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-container::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -30%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, rgba(0,0,0,0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.hero-title {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 2.5rem;
+  line-height: 1.15;
+  margin-bottom: 0.75rem;
+  color: #F8FAFC;
+}
+
+.hero-subtitle {
+  font-size: 1rem;
+  color: #94A3B8;
+  max-width: 900px;
+  line-height: 1.6;
+  margin-bottom: 0;
+}
+
+/* Section Containers & Headers matching app.py */
+.section-container {
+  margin-bottom: 3rem;
+  padding: 2rem;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.015);
+}
+
+.section-header {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #0F172A;
+  margin-top: 0.5rem;
+  margin-bottom: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-subheader {
+  font-size: 0.95rem;
+  color: #64748B;
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+/* KPI Cards matching app.py .kpi-card */
+.kpi-card {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 1.25rem;
+  text-align: center;
+  transition: transform 0.2s, border-color 0.2s;
+}
+.kpi-card:hover {
+  transform: translateY(-2px);
+  border-color: #cbd5e1;
+}
+.kpi-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748B;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.4rem;
+}
+.kpi-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #0F172A;
+}
+.kpi-desc {
+  font-size: 0.75rem;
+  color: #475569;
+  margin-top: 0.3rem;
+}
+
+/* Showcase Grid & Badges matching app.py */
+.showcase-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 20px;
+  padding: 1.25rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.01);
+  text-align: center;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+}
+.showcase-card:hover {
+  border-color: #3b82f6;
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(59, 130, 246, 0.08);
+}
+.showcase-country {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0F172A;
+}
+.showcase-badge {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin: 6px 0;
+}
+.badge-incumbent {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+}
+.badge-challenger {
+  background-color: rgba(249, 115, 22, 0.1);
+  color: #ea580c;
+}
+.card-details {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  text-align: center;
+  color: #475569;
+  margin-top: 8px;
+}

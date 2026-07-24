@@ -702,6 +702,14 @@ def build_modeling_dataset(conn, include_upcoming=False):
     for code in clea_years_by_country:
         clea_years_by_country[code].sort()
         
+    # Pre-cache supplemental election results
+    supplemental_cache = {}
+    try:
+        cursor.execute("SELECT country_code, year, is_presidential, winning_share FROM supplemental_election_results;")
+        supplemental_cache = {(r[0], r[1], r[2]): r[3] for r in cursor.fetchall()}
+    except sqlite3.OperationalError:
+        pass
+        
     # Pre-cache global indicators
     cursor.execute("SELECT year, brent_oil_price, fed_funds_rate, us_president_ideology FROM global_indicators;")
     global_cache = {r[0]: (r[1], r[2], r[3]) for r in cursor.fetchall()}
@@ -981,6 +989,12 @@ def build_modeling_dataset(conn, include_upcoming=False):
         else:
             integrity_level = 0
             
+        current_iss = None
+        if (code, year) in clea_cache:
+            current_iss = clea_cache[(code, year)][3]
+        if pd.isna(current_iss) or current_iss is None:
+            current_iss = supplemental_cache.get((code, year, is_presidential))
+            
         data.append({
             "election_id": elect_id,
             "source": "nelda",
@@ -1079,6 +1093,7 @@ def build_modeling_dataset(conn, include_upcoming=False):
             "government_media_balance": government_media_balance,
             "target_outcome": incumbent_won,
             "target_integrity": integrity_level,
+            "incumbent_seat_share": current_iss,
             "gdelt_coverage": gdelt_coverage
         })
     
@@ -1376,6 +1391,7 @@ def build_modeling_dataset(conn, include_upcoming=False):
             "government_media_balance": government_media_balance,
             "target_outcome": target,
             "target_integrity": np.nan,
+            "incumbent_seat_share": supplemental_cache.get((code, year, is_presidential), np.nan),
             "gdelt_coverage": gdelt_coverage
         })
         
@@ -2142,6 +2158,333 @@ def recalculate_global_features(df):
     df["latent_global_democracy_trend"] = df["year"].map(dem_trend_map)
 
 
+class HybridElectionsModel:
+    def __init__(self, exec_features, leg_features, exec_params, leg_params):
+        self.exec_features = exec_features
+        self.leg_features = leg_features
+        self.exec_params = exec_params
+        self.leg_params = leg_params
+        
+        self.ex_reg_xgb = None
+        self.ex_reg_cb = None
+        self.ex_sigma = 0.15
+        self.ex_unclean_xgb = None
+        self.ex_unclean_cb = None
+        
+        self.leg_reg_xgb = None
+        self.leg_reg_cb = None
+        self.leg_sigma = 0.15
+        self.leg_unclean_xgb = None
+        self.leg_unclean_cb = None
+        
+        self.meta_clf = None
+        
+    def fit(self, df_train):
+        import numpy as np
+        import pandas as pd
+        import xgboost as xgb
+        import catboost as cb
+        from sklearn.model_selection import KFold
+        from sklearn.linear_model import LogisticRegression
+        
+        # Split clean/unclean
+        train_clean_exec = df_train[(df_train["is_presidential"] == 1) & (df_train["clean_index"] >= 0.65) & (df_train["incumbent_seat_share"].notna())]
+        train_unclean_exec = df_train[(df_train["is_presidential"] == 1) & ((df_train["clean_index"] < 0.65) | (df_train["incumbent_seat_share"].isna()))]
+        
+        train_clean_leg = df_train[(df_train["is_presidential"] == 0) & (df_train["clean_index"] >= 0.65) & (df_train["incumbent_seat_share"].notna())]
+        train_unclean_leg = df_train[(df_train["is_presidential"] == 0) & ((df_train["clean_index"] < 0.65) | (df_train["incumbent_seat_share"].isna()))]
+        
+        # Executive clean regressor (targets seat share)
+        if not train_clean_exec.empty:
+            self.ex_reg_xgb = xgb.XGBRegressor(
+                max_depth=TUNED_PARAMS["model_parameters"]["xgb_max_depth"],
+                learning_rate=TUNED_PARAMS["model_parameters"]["xgb_lr"],
+                n_estimators=150,
+                random_state=42
+            ).fit(train_clean_exec[self.exec_features], train_clean_exec["incumbent_seat_share"])
+            
+            self.ex_reg_cb = cb.CatBoostRegressor(
+                iterations=200,
+                depth=TUNED_PARAMS["model_parameters"]["cb_depth"],
+                learning_rate=TUNED_PARAMS["model_parameters"]["cb_lr"],
+                verbose=0,
+                random_seed=42
+            ).fit(train_clean_exec[self.exec_features], train_clean_exec["incumbent_seat_share"])
+            
+            kf = KFold(n_splits=5, shuffle=True, random_state=42)
+            residuals = []
+            if len(train_clean_exec) >= 10:
+                for tr_idx, val_idx in kf.split(train_clean_exec):
+                    X_tr, X_val = train_clean_exec[self.exec_features].iloc[tr_idx], train_clean_exec[self.exec_features].iloc[val_idx]
+                    y_tr, y_val = train_clean_exec["incumbent_seat_share"].iloc[tr_idx], train_clean_exec["incumbent_seat_share"].iloc[val_idx]
+                    
+                    m_xgb = xgb.XGBRegressor(max_depth=3, learning_rate=0.05, n_estimators=100, random_state=42).fit(X_tr, y_tr)
+                    m_cb = cb.CatBoostRegressor(iterations=100, depth=4, learning_rate=0.05, verbose=0, random_seed=42).fit(X_tr, y_tr)
+                    
+                    pred = 0.5 * m_xgb.predict(X_val) + 0.5 * m_cb.predict(X_val)
+                    residuals.extend(y_val - pred)
+                self.ex_sigma = max(0.05, np.std(residuals))
+            else:
+                in_sample_pred = 0.5 * self.ex_reg_xgb.predict(train_clean_exec[self.exec_features]) + 0.5 * self.ex_reg_cb.predict(train_clean_exec[self.exec_features])
+                self.ex_sigma = max(0.05, np.std(train_clean_exec["incumbent_seat_share"] - in_sample_pred) * 1.2)
+                
+        # Executive unclean classifier (targets binary outcome)
+        if not train_unclean_exec.empty:
+            self.ex_unclean_xgb = xgb.XGBClassifier(
+                max_depth=TUNED_PARAMS["model_parameters"]["xgb_max_depth"],
+                learning_rate=TUNED_PARAMS["model_parameters"]["xgb_lr"],
+                n_estimators=150,
+                eval_metric='logloss',
+                random_state=42
+            ).fit(train_unclean_exec[self.exec_features], train_unclean_exec["target_outcome"])
+            
+            self.ex_unclean_cb = cb.CatBoostClassifier(
+                iterations=200,
+                depth=TUNED_PARAMS["model_parameters"]["cb_depth"],
+                learning_rate=TUNED_PARAMS["model_parameters"]["cb_lr"],
+                verbose=0,
+                random_seed=42
+            ).fit(train_unclean_exec[self.exec_features], train_unclean_exec["target_outcome"])
+            
+        # Legislative clean regressor (targets seat share)
+        if not train_clean_leg.empty:
+            self.leg_reg_xgb = xgb.XGBRegressor(
+                max_depth=TUNED_PARAMS["model_parameters"]["xgb_max_depth"],
+                learning_rate=TUNED_PARAMS["model_parameters"]["xgb_lr"],
+                n_estimators=150,
+                random_state=42
+            ).fit(train_clean_leg[self.leg_features], train_clean_leg["incumbent_seat_share"])
+            
+            self.leg_reg_cb = cb.CatBoostRegressor(
+                iterations=200,
+                depth=TUNED_PARAMS["model_parameters"]["cb_depth"],
+                learning_rate=TUNED_PARAMS["model_parameters"]["cb_lr"],
+                verbose=0,
+                random_seed=42
+            ).fit(train_clean_leg[self.leg_features], train_clean_leg["incumbent_seat_share"])
+            
+            kf = KFold(n_splits=5, shuffle=True, random_state=42)
+            residuals_leg = []
+            if len(train_clean_leg) >= 10:
+                for tr_idx, val_idx in kf.split(train_clean_leg):
+                    X_tr, X_val = train_clean_leg[self.leg_features].iloc[tr_idx], train_clean_leg[self.leg_features].iloc[val_idx]
+                    y_tr, y_val = train_clean_leg["incumbent_seat_share"].iloc[tr_idx], train_clean_leg["incumbent_seat_share"].iloc[val_idx]
+                    
+                    m_xgb = xgb.XGBRegressor(max_depth=3, learning_rate=0.05, n_estimators=100, random_state=42).fit(X_tr, y_tr)
+                    m_cb = cb.CatBoostRegressor(iterations=100, depth=4, learning_rate=0.05, verbose=0, random_seed=42).fit(X_tr, y_tr)
+                    
+                    pred = 0.5 * m_xgb.predict(X_val) + 0.5 * m_cb.predict(X_val)
+                    residuals_leg.extend(y_val - pred)
+                self.leg_sigma = max(0.05, np.std(residuals_leg))
+            else:
+                in_sample_pred = 0.5 * self.leg_reg_xgb.predict(train_clean_leg[self.leg_features]) + 0.5 * self.leg_reg_cb.predict(train_clean_leg[self.leg_features])
+                self.leg_sigma = max(0.05, np.std(train_clean_leg["incumbent_seat_share"] - in_sample_pred) * 1.2)
+                
+        # Legislative unclean classifier (targets binary outcome)
+        if not train_unclean_leg.empty:
+            self.leg_unclean_xgb = xgb.XGBClassifier(
+                max_depth=TUNED_PARAMS["model_parameters"]["xgb_max_depth"],
+                learning_rate=TUNED_PARAMS["model_parameters"]["xgb_lr"],
+                n_estimators=150,
+                eval_metric='logloss',
+                random_state=42
+            ).fit(train_unclean_leg[self.leg_features], train_unclean_leg["target_outcome"])
+            
+            self.leg_unclean_cb = cb.CatBoostClassifier(
+                iterations=200,
+                depth=TUNED_PARAMS["model_parameters"]["cb_depth"],
+                learning_rate=TUNED_PARAMS["model_parameters"]["cb_lr"],
+                verbose=0,
+                random_seed=42
+            ).fit(train_unclean_leg[self.leg_features], train_unclean_leg["target_outcome"])
+            
+        # Fit combined Meta-Classifier for clean elections
+        train_clean = df_train[(df_train["clean_index"] >= 0.65) & (df_train["incumbent_seat_share"].notna())]
+        if len(train_clean) >= 10:
+            train_clean_reset = train_clean.reset_index(drop=True)
+            pred_shares = np.zeros(len(train_clean_reset))
+            kf_meta = KFold(n_splits=5, shuffle=True, random_state=42)
+            
+            for tr_idx, val_idx in kf_meta.split(train_clean_reset):
+                fold_tr = train_clean_reset.iloc[tr_idx]
+                
+                # Executive regressors for fold
+                fold_tr_ex = fold_tr[fold_tr["is_presidential"] == 1]
+                ex_xgb_fold = None
+                ex_cb_fold = None
+                if not fold_tr_ex.empty and len(fold_tr_ex) >= 2:
+                    ex_xgb_fold = xgb.XGBRegressor(max_depth=3, learning_rate=0.05, n_estimators=100, random_state=42).fit(fold_tr_ex[self.exec_features], fold_tr_ex["incumbent_seat_share"])
+                    ex_cb_fold = cb.CatBoostRegressor(iterations=100, depth=4, learning_rate=0.05, verbose=0, random_seed=42).fit(fold_tr_ex[self.exec_features], fold_tr_ex["incumbent_seat_share"])
+                    
+                # Legislative regressors for fold
+                fold_tr_leg = fold_tr[fold_tr["is_presidential"] == 0]
+                leg_xgb_fold = None
+                leg_cb_fold = None
+                if not fold_tr_leg.empty and len(fold_tr_leg) >= 2:
+                    leg_xgb_fold = xgb.XGBRegressor(max_depth=3, learning_rate=0.05, n_estimators=100, random_state=42).fit(fold_tr_leg[self.leg_features], fold_tr_leg["incumbent_seat_share"])
+                    leg_cb_fold = cb.CatBoostRegressor(iterations=100, depth=4, learning_rate=0.05, verbose=0, random_seed=42).fit(fold_tr_leg[self.leg_features], fold_tr_leg["incumbent_seat_share"])
+                    
+                # Predict out-of-sample
+                for i in val_idx:
+                    row = train_clean_reset.iloc[i]
+                    is_pres = row["is_presidential"]
+                    if is_pres == 1:
+                        if ex_xgb_fold is not None and ex_cb_fold is not None:
+                            X_row = pd.DataFrame([row[self.exec_features]], columns=self.exec_features)
+                            pred_shares[i] = 0.5 * ex_xgb_fold.predict(X_row)[0] + 0.5 * ex_cb_fold.predict(X_row)[0]
+                        else:
+                            pred_shares[i] = row["incumbent_seat_share"]
+                    else:
+                        if leg_xgb_fold is not None and leg_cb_fold is not None:
+                            X_row = pd.DataFrame([row[self.leg_features]], columns=self.leg_features)
+                            pred_shares[i] = 0.5 * leg_xgb_fold.predict(X_row)[0] + 0.5 * leg_cb_fold.predict(X_row)[0]
+                        else:
+                            pred_shares[i] = row["incumbent_seat_share"]
+                            
+            X_meta = pd.DataFrame({
+                "predicted_seat_share": pred_shares,
+                "prior_effective_parties": train_clean_reset["prior_effective_parties"].fillna(2.0),
+                "political_polarization": train_clean_reset["political_polarization"].fillna(0.0),
+                "is_presidential": train_clean_reset["is_presidential"],
+                "electoral_system_pr": train_clean_reset["electoral_system_pr"].fillna(0.0)
+            })
+            y_meta = train_clean_reset["target_outcome"]
+            self.meta_clf = LogisticRegression(random_state=42).fit(X_meta, y_meta)
+        elif len(train_clean) > 0:
+            # In-sample fallback if too few clean training rows
+            train_clean_reset = train_clean.reset_index(drop=True)
+            pred_shares = np.zeros(len(train_clean_reset))
+            for i, row in train_clean_reset.iterrows():
+                is_pres = row["is_presidential"]
+                if is_pres == 1 and self.ex_reg_xgb is not None:
+                    X_row = pd.DataFrame([row[self.exec_features]], columns=self.exec_features)
+                    pred_shares[i] = 0.5 * self.ex_reg_xgb.predict(X_row)[0] + 0.5 * self.ex_reg_cb.predict(X_row)[0]
+                elif is_pres == 0 and self.leg_reg_xgb is not None:
+                    X_row = pd.DataFrame([row[self.leg_features]], columns=self.leg_features)
+                    pred_shares[i] = 0.5 * self.leg_reg_xgb.predict(X_row)[0] + 0.5 * self.leg_reg_cb.predict(X_row)[0]
+                else:
+                    pred_shares[i] = row["incumbent_seat_share"]
+            X_meta = pd.DataFrame({
+                "predicted_seat_share": pred_shares,
+                "prior_effective_parties": train_clean_reset["prior_effective_parties"].fillna(2.0),
+                "political_polarization": train_clean_reset["political_polarization"].fillna(0.0),
+                "is_presidential": train_clean_reset["is_presidential"],
+                "electoral_system_pr": train_clean_reset["electoral_system_pr"].fillna(0.0)
+            })
+            y_meta = train_clean_reset["target_outcome"]
+            self.meta_clf = LogisticRegression(random_state=42).fit(X_meta, y_meta)
+            
+    def predict_row_probability(self, row):
+        import pandas as pd
+        from scipy.stats import norm
+        is_pres = row["is_presidential"]
+        clean_idx = row["clean_index"]
+        is_clean = pd.notna(clean_idx) and clean_idx >= 0.65
+        
+        if is_clean and self.meta_clf is not None:
+            if is_pres == 1:
+                if self.ex_reg_xgb is not None and self.ex_reg_cb is not None:
+                    X_pred = pd.DataFrame([row[self.exec_features]], columns=self.exec_features)
+                    xgb_w = self.exec_params["xgb_weight"]
+                    pred_s = xgb_w * self.ex_reg_xgb.predict(X_pred)[0] + (1.0 - xgb_w) * self.ex_reg_cb.predict(X_pred)[0]
+                else:
+                    pred_s = 0.50
+            else:
+                if self.leg_reg_xgb is not None and self.leg_reg_cb is not None:
+                    X_pred = pd.DataFrame([row[self.leg_features]], columns=self.leg_features)
+                    xgb_w = self.leg_params["xgb_weight"]
+                    pred_s = xgb_w * self.leg_reg_xgb.predict(X_pred)[0] + (1.0 - xgb_w) * self.leg_reg_cb.predict(X_pred)[0]
+                else:
+                    pred_s = 0.50
+                    
+            meta_row = pd.DataFrame([{
+                "predicted_seat_share": pred_s,
+                "prior_effective_parties": row["prior_effective_parties"] if pd.notna(row["prior_effective_parties"]) else 2.0,
+                "political_polarization": row["political_polarization"] if pd.notna(row["political_polarization"]) else 0.0,
+                "is_presidential": is_pres,
+                "electoral_system_pr": row["electoral_system_pr"] if pd.notna(row["electoral_system_pr"]) else 0.0
+            }])
+            return self.meta_clf.predict_proba(meta_row)[:, 1][0]
+            
+        # Unclean path
+        if is_pres == 1:
+            X_pred = pd.DataFrame([row[self.exec_features]], columns=self.exec_features)
+            xgb_w = self.exec_params["xgb_weight"]
+            prob_xgb = self.ex_unclean_xgb.predict_proba(X_pred)[:, 1][0] if self.ex_unclean_xgb is not None else 0.5
+            prob_cb = self.ex_unclean_cb.predict_proba(X_pred)[:, 1][0] if self.ex_unclean_cb is not None else 0.5
+            return xgb_w * prob_xgb + (1.0 - xgb_w) * prob_cb
+        else:
+            X_pred = pd.DataFrame([row[self.leg_features]], columns=self.leg_features)
+            xgb_w = self.leg_params["xgb_weight"]
+            prob_xgb = self.leg_unclean_xgb.predict_proba(X_pred)[:, 1][0] if self.leg_unclean_xgb is not None else 0.5
+            prob_cb = self.leg_unclean_cb.predict_proba(X_pred)[:, 1][0] if self.leg_unclean_cb is not None else 0.5
+            return xgb_w * prob_xgb + (1.0 - xgb_w) * prob_cb
+            
+    def predict_row_probability_split(self, row):
+        import pandas as pd
+        from scipy.stats import norm
+        is_pres = row["is_presidential"]
+        clean_idx = row["clean_index"]
+        is_clean = pd.notna(clean_idx) and clean_idx >= 0.65
+        
+        if is_pres == 1:
+            X_pred = pd.DataFrame([row[self.exec_features]], columns=self.exec_features)
+            xgb_w = self.exec_params["xgb_weight"]
+            
+            if is_clean and self.ex_reg_xgb is not None and self.ex_reg_cb is not None:
+                s_xgb = self.ex_reg_xgb.predict(X_pred)[0]
+                s_cb = self.ex_reg_cb.predict(X_pred)[0]
+                p_xgb = norm.cdf((s_xgb - 0.50) / self.ex_sigma)
+                p_cb = norm.cdf((s_cb - 0.50) / self.ex_sigma)
+                
+                if self.meta_clf is not None:
+                    pred_s = xgb_w * s_xgb + (1.0 - xgb_w) * s_cb
+                    meta_row = pd.DataFrame([{
+                        "predicted_seat_share": pred_s,
+                        "prior_effective_parties": row["prior_effective_parties"] if pd.notna(row["prior_effective_parties"]) else 2.0,
+                        "political_polarization": row["political_polarization"] if pd.notna(row["political_polarization"]) else 0.0,
+                        "is_presidential": is_pres,
+                        "electoral_system_pr": row["electoral_system_pr"] if pd.notna(row["electoral_system_pr"]) else 0.0
+                    }])
+                    p_ens = self.meta_clf.predict_proba(meta_row)[:, 1][0]
+                else:
+                    p_ens = xgb_w * p_xgb + (1.0 - xgb_w) * p_cb
+                return p_xgb, p_cb, p_ens
+            else:
+                p_xgb = self.ex_unclean_xgb.predict_proba(X_pred)[:, 1][0] if self.ex_unclean_xgb is not None else 0.5
+                p_cb = self.ex_unclean_cb.predict_proba(X_pred)[:, 1][0] if self.ex_unclean_cb is not None else 0.5
+                p_ens = xgb_w * p_xgb + (1.0 - xgb_w) * p_cb
+                return p_xgb, p_cb, p_ens
+        else:
+            X_pred = pd.DataFrame([row[self.leg_features]], columns=self.leg_features)
+            xgb_w = self.leg_params["xgb_weight"]
+            
+            if is_clean and self.leg_reg_xgb is not None and self.leg_reg_cb is not None:
+                s_xgb = self.leg_reg_xgb.predict(X_pred)[0]
+                s_cb = self.leg_reg_cb.predict(X_pred)[0]
+                p_xgb = norm.cdf((s_xgb - 0.50) / self.leg_sigma)
+                p_cb = norm.cdf((s_cb - 0.50) / self.leg_sigma)
+                
+                if self.meta_clf is not None:
+                    pred_s = xgb_w * s_xgb + (1.0 - xgb_w) * s_cb
+                    meta_row = pd.DataFrame([{
+                        "predicted_seat_share": pred_s,
+                        "prior_effective_parties": row["prior_effective_parties"] if pd.notna(row["prior_effective_parties"]) else 2.0,
+                        "political_polarization": row["political_polarization"] if pd.notna(row["political_polarization"]) else 0.0,
+                        "is_presidential": is_pres,
+                        "electoral_system_pr": row["electoral_system_pr"] if pd.notna(row["electoral_system_pr"]) else 0.0
+                    }])
+                    p_ens = self.meta_clf.predict_proba(meta_row)[:, 1][0]
+                else:
+                    p_ens = xgb_w * p_xgb + (1.0 - xgb_w) * p_cb
+                return p_xgb, p_cb, p_ens
+            else:
+                p_xgb = self.leg_unclean_xgb.predict_proba(X_pred)[:, 1][0] if self.leg_unclean_xgb is not None else 0.5
+                p_cb = self.leg_unclean_cb.predict_proba(X_pred)[:, 1][0] if self.leg_unclean_cb is not None else 0.5
+                p_ens = xgb_w * p_xgb + (1.0 - xgb_w) * p_cb
+                return p_xgb, p_cb, p_ens
+
+
 def predict_with_cascading(df, train_cutoff_year=None, conn=None, return_df=False):
     """
     Predict outcomes for elections with unknown results, using cascading logic:
@@ -2183,47 +2526,9 @@ def predict_with_cascading(df, train_cutoff_year=None, conn=None, return_df=Fals
         "classification_threshold": 0.50
     })
     
-    # Train separate models for Executive and Legislative
-    train_exec = df_train[df_train["is_presidential"] == 1]
-    train_leg = df_train[df_train["is_presidential"] == 0]
-    
-    ex_xgb = None
-    ex_cb = None
-    if not train_exec.empty:
-        ex_xgb = xgb.XGBClassifier(
-            max_depth=TUNED_PARAMS["model_parameters"]["xgb_max_depth"],
-            learning_rate=TUNED_PARAMS["model_parameters"]["xgb_lr"],
-            n_estimators=150,
-            eval_metric='logloss',
-            random_state=42
-        ).fit(train_exec[exec_features], train_exec["target_outcome"])
-        
-        ex_cb = cb.CatBoostClassifier(
-            iterations=200,
-            depth=TUNED_PARAMS["model_parameters"]["cb_depth"],
-            learning_rate=TUNED_PARAMS["model_parameters"]["cb_lr"],
-            verbose=0,
-            random_seed=42
-        ).fit(train_exec[exec_features], train_exec["target_outcome"])
-        
-    leg_xgb = None
-    leg_cb = None
-    if not train_leg.empty:
-        leg_xgb = xgb.XGBClassifier(
-            max_depth=TUNED_PARAMS["model_parameters"]["xgb_max_depth"],
-            learning_rate=TUNED_PARAMS["model_parameters"]["xgb_lr"],
-            n_estimators=150,
-            eval_metric='logloss',
-            random_state=42
-        ).fit(train_leg[leg_features], train_leg["target_outcome"])
-        
-        leg_cb = cb.CatBoostClassifier(
-            iterations=200,
-            depth=TUNED_PARAMS["model_parameters"]["cb_depth"],
-            learning_rate=TUNED_PARAMS["model_parameters"]["cb_lr"],
-            verbose=0,
-            random_seed=42
-        ).fit(train_leg[leg_features], train_leg["target_outcome"])
+    # Train hybrid elections model
+    hybrid_model = HybridElectionsModel(exec_features, leg_features, exec_params, leg_params)
+    hybrid_model.fit(df_train)
 
     if conn is None:
         conn = get_connection()
@@ -2263,26 +2568,19 @@ def predict_with_cascading(df, train_cutoff_year=None, conn=None, return_df=Fals
             completeness = row["data_completeness"]
             is_pres = row["is_presidential"]
             
-            # Predict using relevant model
+            # Predict using relevant clean regressor or unclean classifier model
+            prob = hybrid_model.predict_row_probability(row)
+            is_clean = pd.notna(row["clean_index"]) and row["clean_index"] >= 0.65
+            
             if is_pres == 1:
-                # Executive model
-                X_pred = pd.DataFrame([row[exec_features]], columns=exec_features)
-                prob_xgb = ex_xgb.predict_proba(X_pred)[:, 1][0] if ex_xgb is not None else 0.5
-                prob_cb = ex_cb.predict_proba(X_pred)[:, 1][0] if ex_cb is not None else 0.5
-                xgb_w = exec_params["xgb_weight"]
+                threshold = exec_params.get("classification_threshold_clean", 0.50) if is_clean else exec_params.get("classification_threshold_unclean", 0.515)
                 T_val = exec_params["T"]
-                threshold = exec_params["classification_threshold"]
             else:
-                # Legislative model
-                X_pred = pd.DataFrame([row[leg_features]], columns=leg_features)
-                prob_xgb = leg_xgb.predict_proba(X_pred)[:, 1][0] if leg_xgb is not None else 0.5
-                prob_cb = leg_cb.predict_proba(X_pred)[:, 1][0] if leg_cb is not None else 0.5
-                xgb_w = leg_params["xgb_weight"]
+                threshold = leg_params.get("classification_threshold_clean", 0.50) if is_clean else leg_params.get("classification_threshold_unclean", 0.515)
                 T_val = leg_params["T"]
-                threshold = leg_params["classification_threshold"]
-                
-            prob = xgb_w * prob_xgb + (1.0 - xgb_w) * prob_cb
-            prob = calibrate_probability(prob, T=T_val)
+                    
+            if not is_clean:
+                prob = calibrate_probability(prob, T=T_val)
             raw_confidence = max(prob, 1 - prob)
             
             # Set target_outcome to the soft probability outcome for future steps

@@ -113,9 +113,9 @@ def load_cached_modeling_dataset(db_mtime):
 
 @st.cache_resource
 def get_trained_models(db_mtime):
-    """Train separate Executive and Legislative ensembles (XGBoost + CatBoost) on all known historical records."""
-    if cache_data is not None:
-        return cache_data["ex_xgb"], cache_data["ex_cb"], cache_data["leg_xgb"], cache_data["leg_cb"]
+    """Return the trained HybridElectionsModel from cache or train a new one."""
+    if cache_data is not None and "hybrid_model" in cache_data:
+        return cache_data["hybrid_model"]
         
     df = load_cached_modeling_dataset(db_mtime)
     df_known = df[df["target_outcome"].notna()].copy()
@@ -124,45 +124,13 @@ def get_trained_models(db_mtime):
     exec_features = [f for f in FEATURES if f not in LEG_SPECIFIC and not (f.startswith("country_") and len(f) == 11 and f[8:].isupper())] + country_dummies
     leg_features = [f for f in FEATURES if f not in EXEC_SPECIFIC and not (f.startswith("country_") and len(f) == 11 and f[8:].isupper())] + country_dummies
     
-    # Train separate models for Executive and Legislative
-    train_exec = df_known[df_known["is_presidential"] == 1]
-    train_leg = df_known[df_known["is_presidential"] == 0]
+    exec_params = TUNED_PARAMS.get("executive_model", {"xgb_weight": 0.5, "T": 1.15, "classification_threshold": 0.515})
+    leg_params = TUNED_PARAMS.get("legislative_model", {"xgb_weight": 0.5, "T": 1.15, "classification_threshold": 0.515})
     
-    # Fit Executive model
-    ex_xgb = xgb.XGBClassifier(
-        max_depth=TUNED_PARAMS["model_parameters"]["xgb_max_depth"],
-        learning_rate=TUNED_PARAMS["model_parameters"]["xgb_lr"],
-        n_estimators=150,
-        eval_metric='logloss',
-        random_state=42
-    ).fit(train_exec[exec_features], train_exec["target_outcome"])
-    
-    ex_cb = cb.CatBoostClassifier(
-        iterations=200,
-        depth=TUNED_PARAMS["model_parameters"]["cb_depth"],
-        learning_rate=TUNED_PARAMS["model_parameters"]["cb_lr"],
-        verbose=0,
-        random_seed=42
-    ).fit(train_exec[exec_features], train_exec["target_outcome"])
-    
-    # Fit Legislative model
-    leg_xgb = xgb.XGBClassifier(
-        max_depth=TUNED_PARAMS["model_parameters"]["xgb_max_depth"],
-        learning_rate=TUNED_PARAMS["model_parameters"]["xgb_lr"],
-        n_estimators=150,
-        eval_metric='logloss',
-        random_state=42
-    ).fit(train_leg[leg_features], train_leg["target_outcome"])
-    
-    leg_cb = cb.CatBoostClassifier(
-        iterations=200,
-        depth=TUNED_PARAMS["model_parameters"]["cb_depth"],
-        learning_rate=TUNED_PARAMS["model_parameters"]["cb_lr"],
-        verbose=0,
-        random_seed=42
-    ).fit(train_leg[leg_features], train_leg["target_outcome"])
-    
-    return ex_xgb, ex_cb, leg_xgb, leg_cb
+    from models.correlation_models import HybridElectionsModel
+    hybrid_model = HybridElectionsModel(exec_features, leg_features, exec_params, leg_params)
+    hybrid_model.fit(df_known)
+    return hybrid_model
 
 @st.cache_data
 def evaluate_national_models_live(db_mtime):
@@ -1545,7 +1513,7 @@ if selected_row is not None:
     if not match_row.empty:
         is_pres = selected_row["election_type"] == "Executive"
         
-        ex_xgb, ex_cb, leg_xgb, leg_cb = get_trained_models(db_mtime)
+        hybrid_model = get_trained_models(db_mtime)
         exec_params = TUNED_PARAMS.get("executive_model", {"xgb_weight": 0.9, "T": 0.78})
         leg_params = TUNED_PARAMS.get("legislative_model", {"xgb_weight": 0.5, "T": 0.80})
         
@@ -1553,16 +1521,27 @@ if selected_row is not None:
         exec_features = [f for f in FEATURES if f not in LEG_SPECIFIC and not (f.startswith("country_") and len(f) == 11 and f[8:].isupper())] + country_dummies
         leg_features = [f for f in FEATURES if f not in EXEC_SPECIFIC and not (f.startswith("country_") and len(f) == 11 and f[8:].isupper())] + country_dummies
         
+        clean_idx = selected_row.get("clean_index")
+        is_clean = pd.notna(clean_idx) and clean_idx >= 0.65
+        
         if is_pres:
-            model_xgb = ex_xgb
-            model_cb = ex_cb
             feats = exec_features
             xgb_w = exec_params["xgb_weight"]
+            if is_clean and hybrid_model.ex_reg_xgb is not None:
+                model_xgb = hybrid_model.ex_reg_xgb
+                model_cb = hybrid_model.ex_reg_cb
+            else:
+                model_xgb = hybrid_model.ex_unclean_xgb
+                model_cb = hybrid_model.ex_unclean_cb
         else:
-            model_xgb = leg_xgb
-            model_cb = leg_cb
             feats = leg_features
             xgb_w = leg_params["xgb_weight"]
+            if is_clean and hybrid_model.leg_reg_xgb is not None:
+                model_xgb = hybrid_model.leg_reg_xgb
+                model_cb = hybrid_model.leg_reg_cb
+            else:
+                model_xgb = hybrid_model.leg_unclean_xgb
+                model_cb = hybrid_model.leg_unclean_cb
         
         X_pred = match_row[feats]
         

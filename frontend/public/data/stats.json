@@ -1,0 +1,13 @@
+{
+  "total_countries": 174,
+  "historical_elections": 2425,
+  "upcoming_elections": 158,
+  "overall_accuracy_pct": 70.19,
+  "overall_correct": 1702,
+  "clean_accuracy_pct": 65.04,
+  "clean_correct": 707,
+  "clean_total": 1087,
+  "cv_mean_cb": 0.67,
+  "cv_mean_xgb": 0.6997,
+  "cv_mean_ensemble": 0.7019
+}

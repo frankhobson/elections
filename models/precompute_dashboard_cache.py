@@ -24,6 +24,11 @@ from models.correlation_models import (
 DB_PATH = os.path.join(BASE_DIR, "elections.db")
 CACHE_PATH = os.path.join(BASE_DIR, "dashboard", "cached_dashboard_data.pkl")
 
+def cal_prob_val(pr, T_val):
+    pr = np.clip(pr, 1e-5, 1.0 - 1e-5)
+    logit = np.log(pr / (1.0 - pr))
+    return 1.0 / (1.0 + np.exp(-logit / T_val))
+
 def get_all_predictions(df, preds):
     df_known = df[df["target_outcome"].notna()].copy()
     
@@ -39,79 +44,44 @@ def get_all_predictions(df, preds):
     df_known["predicted_prob"] = np.nan
     df_known["predicted_outcome"] = np.nan
     
-    # Calibrate probability locally
-    def cal_prob_val(pr, T_val):
-        pr = np.clip(pr, 1e-5, 1.0 - 1e-5)
-        logit = np.log(pr / (1.0 - pr))
-        return 1.0 / (1.0 + np.exp(-logit / T_val))
+    # Cross-validate hybrid models
+    for train_idx, val_idx in kf.split(df_known):
+        df_tr = df_known.iloc[train_idx]
+        df_val = df_known.iloc[val_idx]
+        
+        from models.correlation_models import HybridElectionsModel
+        model = HybridElectionsModel(exec_features, leg_features, exec_params, leg_params)
+        model.fit(df_tr)
+        
+        p_ens_list = []
+        for _, row in df_val.iterrows():
+            prob = model.predict_row_probability(row)
+            is_clean = pd.notna(row["clean_index"]) and row["clean_index"] >= 0.65
+            T_val = exec_params["T"] if row["is_presidential"] == 1 else leg_params["T"]
+            prob_cal = prob if is_clean else cal_prob_val(prob, T_val)
+            p_ens_list.append(prob_cal)
+            
+        val_indices_global = df_known.index[val_idx]
+        df_known.loc[val_indices_global, "predicted_prob"] = p_ens_list
+
+    # Map predicted outcomes using threshold rules
+    exec_clean_t = exec_params.get("classification_threshold_clean", 0.50)
+    exec_unclean_t = exec_params.get("classification_threshold_unclean", 0.515)
+    leg_clean_t = leg_params.get("classification_threshold_clean", 0.50)
+    leg_unclean_t = leg_params.get("classification_threshold_unclean", 0.515)
     
-    # 1. Cross-validate Executive Model
-    df_known_exec = df_known[df_known["is_presidential"] == 1].copy()
-    if not df_known_exec.empty:
-        X_ex = df_known_exec[exec_features]
-        y_ex = df_known_exec["target_outcome"]
+    preds_outcome = []
+    for _, row in df_known.iterrows():
+        is_pres = row["is_presidential"]
+        is_clean = pd.notna(row["clean_index"]) and row["clean_index"] >= 0.65
+        prob = row["predicted_prob"]
+        if is_pres == 1:
+            t = exec_clean_t if is_clean else exec_unclean_t
+        else:
+            t = leg_clean_t if is_clean else leg_unclean_t
+        preds_outcome.append(1 if prob >= t else 0)
         
-        for train_idx, val_idx in kf.split(df_known_exec):
-            X_tr = X_ex.iloc[train_idx]
-            X_val = X_ex.iloc[val_idx]
-            y_tr = y_ex.iloc[train_idx]
-            
-            ex_cb = cb.CatBoostClassifier(
-                iterations=200, depth=TUNED_PARAMS["model_parameters"]["cb_depth"],
-                learning_rate=TUNED_PARAMS["model_parameters"]["cb_lr"], verbose=0, random_seed=42
-            ).fit(X_tr, y_tr)
-            
-            ex_xgb = xgb.XGBClassifier(
-                max_depth=TUNED_PARAMS["model_parameters"]["xgb_max_depth"],
-                learning_rate=TUNED_PARAMS["model_parameters"]["xgb_lr"],
-                n_estimators=150, eval_metric='logloss', random_state=42
-            ).fit(X_tr, y_tr)
-            
-            prob_cb = ex_cb.predict_proba(X_val)[:, 1]
-            prob_xgb = ex_xgb.predict_proba(X_val)[:, 1]
-            
-            w_ex = exec_params["xgb_weight"]
-            p_ens = w_ex * prob_xgb + (1.0 - w_ex) * prob_cb
-            p_ens_cal = np.array([cal_prob_val(p, exec_params["T"]) for p in p_ens])
-            
-            # Map back to group indices
-            val_indices_global = df_known_exec.index[val_idx]
-            df_known.loc[val_indices_global, "predicted_prob"] = p_ens_cal
-            df_known.loc[val_indices_global, "predicted_outcome"] = (p_ens_cal >= exec_params["classification_threshold"]).astype(int)
-            
-    # 2. Cross-validate Legislative Model
-    df_known_leg = df_known[df_known["is_presidential"] == 0].copy()
-    if not df_known_leg.empty:
-        X_leg = df_known_leg[leg_features]
-        y_leg = df_known_leg["target_outcome"]
-        
-        for train_idx, val_idx in kf.split(df_known_leg):
-            X_tr = X_leg.iloc[train_idx]
-            X_val = X_leg.iloc[val_idx]
-            y_tr = y_leg.iloc[train_idx]
-            
-            leg_cb = cb.CatBoostClassifier(
-                iterations=200, depth=TUNED_PARAMS["model_parameters"]["cb_depth"],
-                learning_rate=TUNED_PARAMS["model_parameters"]["cb_lr"], verbose=0, random_seed=42
-            ).fit(X_tr, y_tr)
-            
-            leg_xgb = xgb.XGBClassifier(
-                max_depth=TUNED_PARAMS["model_parameters"]["xgb_max_depth"],
-                learning_rate=TUNED_PARAMS["model_parameters"]["xgb_lr"],
-                n_estimators=150, eval_metric='logloss', random_state=42
-            ).fit(X_tr, y_tr)
-            
-            prob_cb = leg_cb.predict_proba(X_val)[:, 1]
-            prob_xgb = leg_xgb.predict_proba(X_val)[:, 1]
-            
-            w_lg = leg_params["xgb_weight"]
-            p_ens = w_lg * prob_xgb + (1.0 - w_lg) * prob_cb
-            p_ens_cal = np.array([cal_prob_val(p, leg_params["T"]) for p in p_ens])
-            
-            # Map back to group indices
-            val_indices_global = df_known_leg.index[val_idx]
-            df_known.loc[val_indices_global, "predicted_prob"] = p_ens_cal
-            df_known.loc[val_indices_global, "predicted_outcome"] = (p_ens_cal >= leg_params["classification_threshold"]).astype(int)
+    df_known["predicted_outcome"] = preds_outcome
             
     df_known["confidence"] = df_known["predicted_prob"].apply(lambda p: max(p, 1 - p))
     
@@ -164,82 +134,24 @@ def evaluate_national_models_live(df):
         if train_df.empty or test_df.empty:
             continue
             
-        train_exec = train_df[train_df["is_presidential"] == 1]
-        train_leg = train_df[train_df["is_presidential"] == 0]
-        test_exec = test_df[test_df["is_presidential"] == 1]
-        test_leg = test_df[test_df["is_presidential"] == 0]
+        from models.correlation_models import HybridElectionsModel
+        model = HybridElectionsModel(exec_features, leg_features, exec_params, leg_params)
+        model.fit(train_df)
         
         probs_cb = np.zeros(len(test_df))
         probs_xgb = np.zeros(len(test_df))
         probs_ens = np.zeros(len(test_df))
-        test_indices = test_df.index.tolist()
         
-        # Executive
-        if not train_exec.empty and not test_exec.empty:
-            X_tr_ex, y_tr_ex = train_exec[exec_features], train_exec["target_outcome"]
-            X_te_ex, y_te_ex = test_exec[exec_features], test_exec["target_outcome"]
+        for idx, (_, row) in enumerate(test_df.iterrows()):
+            p_xgb, p_cb, p_ens = model.predict_row_probability_split(row)
+            is_clean = pd.notna(row["clean_index"]) and row["clean_index"] >= 0.65
+            T_val = exec_params["T"] if row["is_presidential"] == 1 else leg_params["T"]
+            p_ens_cal = p_ens if is_clean else cal_prob_val(p_ens, T_val)
             
-            ex_cb = cb.CatBoostClassifier(
-                iterations=200, depth=TUNED_PARAMS["model_parameters"]["cb_depth"],
-                learning_rate=TUNED_PARAMS["model_parameters"]["cb_lr"], verbose=0, random_seed=42
-            ).fit(X_tr_ex, y_tr_ex)
+            probs_xgb[idx] = p_xgb
+            probs_cb[idx] = p_cb
+            probs_ens[idx] = p_ens_cal
             
-            ex_xgb = xgb.XGBClassifier(
-                max_depth=TUNED_PARAMS["model_parameters"]["xgb_max_depth"],
-                learning_rate=TUNED_PARAMS["model_parameters"]["xgb_lr"],
-                n_estimators=150, eval_metric='logloss', random_state=42
-            ).fit(X_tr_ex, y_tr_ex)
-            
-            p_cb_ex = ex_cb.predict_proba(X_te_ex)[:, 1]
-            p_xgb_ex = ex_xgb.predict_proba(X_te_ex)[:, 1]
-            p_ens_ex = exec_params["xgb_weight"] * p_xgb_ex + (1.0 - exec_params["xgb_weight"]) * p_cb_ex
-            
-            T_ex = exec_params["T"]
-            def cal_ex(p):
-                p = np.clip(p, 1e-5, 1.0 - 1e-5)
-                logit = np.log(p / (1.0 - p))
-                return 1.0 / (1.0 + np.exp(-logit / T_ex))
-            p_ens_ex_cal = np.array([cal_ex(p) for p in p_ens_ex])
-            
-            for idx_in_test, original_idx in enumerate(test_exec.index):
-                pos = test_indices.index(original_idx)
-                probs_cb[pos] = p_cb_ex[idx_in_test]
-                probs_xgb[pos] = p_xgb_ex[idx_in_test]
-                probs_ens[pos] = p_ens_ex_cal[idx_in_test]
-                
-        # Legislative
-        if not train_leg.empty and not test_leg.empty:
-            X_tr_lg, y_tr_lg = train_leg[leg_features], train_leg["target_outcome"]
-            X_te_lg, y_te_lg = test_leg[leg_features], test_leg["target_outcome"]
-            
-            lg_cb = cb.CatBoostClassifier(
-                iterations=200, depth=TUNED_PARAMS["model_parameters"]["cb_depth"],
-                learning_rate=TUNED_PARAMS["model_parameters"]["cb_lr"], verbose=0, random_seed=42
-            ).fit(X_tr_lg, y_tr_lg)
-            
-            lg_xgb = xgb.XGBClassifier(
-                max_depth=TUNED_PARAMS["model_parameters"]["xgb_max_depth"],
-                learning_rate=TUNED_PARAMS["model_parameters"]["xgb_lr"],
-                n_estimators=150, eval_metric='logloss', random_state=42
-            ).fit(X_tr_lg, y_tr_lg)
-            
-            p_cb_lg = lg_cb.predict_proba(X_te_lg)[:, 1]
-            p_xgb_lg = lg_xgb.predict_proba(X_te_lg)[:, 1]
-            p_ens_lg = leg_params["xgb_weight"] * p_xgb_lg + (1.0 - leg_params["xgb_weight"]) * p_cb_lg
-            
-            T_lg = leg_params["T"]
-            def cal_lg(p):
-                p = np.clip(p, 1e-5, 1.0 - 1e-5)
-                logit = np.log(p / (1.0 - p))
-                return 1.0 / (1.0 + np.exp(-logit / T_lg))
-            p_ens_lg_cal = np.array([cal_lg(p) for p in p_ens_lg])
-            
-            for idx_in_test, original_idx in enumerate(test_leg.index):
-                pos = test_indices.index(original_idx)
-                probs_cb[pos] = p_cb_lg[idx_in_test]
-                probs_xgb[pos] = p_xgb_lg[idx_in_test]
-                probs_ens[pos] = p_ens_lg_cal[idx_in_test]
-                
         y_test = test_df["target_outcome"].values
         is_pres_test = test_df["is_presidential"].values
         
@@ -248,10 +160,20 @@ def evaluate_national_models_live(df):
         preds_ens = np.zeros(len(test_df))
         
         for i in range(len(test_df)):
-            t = exec_params["classification_threshold"] if is_pres_test[i] == 1 else leg_params["classification_threshold"]
-            preds_cb[i] = 1 if probs_cb[i] >= t else 0
-            preds_xgb[i] = 1 if probs_xgb[i] >= t else 0
-            preds_ens[i] = 1 if probs_ens[i] >= t else 0
+            row = test_df.iloc[i]
+            is_pres = row["is_presidential"]
+            is_clean = pd.notna(row["clean_index"]) and row["clean_index"] >= 0.65
+            
+            if is_pres == 1:
+                t_cb_xgb = exec_params.get("classification_threshold_unclean", 0.515)
+                t_ens = exec_params.get("classification_threshold_clean", 0.50) if is_clean else t_cb_xgb
+            else:
+                t_cb_xgb = leg_params.get("classification_threshold_unclean", 0.515)
+                t_ens = leg_params.get("classification_threshold_clean", 0.50) if is_clean else t_cb_xgb
+                
+            preds_cb[i] = 1 if probs_cb[i] >= t_cb_xgb else 0
+            preds_xgb[i] = 1 if probs_xgb[i] >= t_cb_xgb else 0
+            preds_ens[i] = 1 if probs_ens[i] >= t_ens else 0
             
         acc_cb = accuracy_score(y_test, preds_cb)
         acc_xgb = accuracy_score(y_test, preds_xgb)
@@ -301,36 +223,18 @@ def main():
     print("Evaluating live national models validation (evaluate_national_models_live)...")
     cv_df, mean_ridge, mean_xgb, mean_ensemble = evaluate_national_models_live(df)
     
-    print("Training final full-database models...")
+    print("Training final full-database HybridElectionsModel...")
     df_known = df[df["target_outcome"].notna()].copy()
     country_dummies = [col for col in df.columns if col.startswith("country_") and len(col) == 11 and col[8:].isupper()]
     exec_features = [f for f in FEATURES if f not in LEG_SPECIFIC and not (f.startswith("country_") and len(f) == 11 and f[8:].isupper())] + country_dummies
     leg_features = [f for f in FEATURES if f not in EXEC_SPECIFIC and not (f.startswith("country_") and len(f) == 11 and f[8:].isupper())] + country_dummies
     
-    train_exec = df_known[df_known["is_presidential"] == 1]
-    train_leg = df_known[df_known["is_presidential"] == 0]
+    exec_params = TUNED_PARAMS.get("executive_model", {"xgb_weight": 0.5, "T": 1.15, "classification_threshold": 0.515})
+    leg_params = TUNED_PARAMS.get("legislative_model", {"xgb_weight": 0.5, "T": 1.15, "classification_threshold": 0.515})
     
-    ex_xgb = xgb.XGBClassifier(
-        max_depth=TUNED_PARAMS["model_parameters"]["xgb_max_depth"],
-        learning_rate=TUNED_PARAMS["model_parameters"]["xgb_lr"],
-        n_estimators=150, eval_metric='logloss', random_state=42
-    ).fit(train_exec[exec_features], train_exec["target_outcome"])
-    
-    ex_cb = cb.CatBoostClassifier(
-        iterations=200, depth=TUNED_PARAMS["model_parameters"]["cb_depth"],
-        learning_rate=TUNED_PARAMS["model_parameters"]["cb_lr"], verbose=0, random_seed=42
-    ).fit(train_exec[exec_features], train_exec["target_outcome"])
-    
-    leg_xgb = xgb.XGBClassifier(
-        max_depth=TUNED_PARAMS["model_parameters"]["xgb_max_depth"],
-        learning_rate=TUNED_PARAMS["model_parameters"]["xgb_lr"],
-        n_estimators=150, eval_metric='logloss', random_state=42
-    ).fit(train_leg[leg_features], train_leg["target_outcome"])
-    
-    leg_cb = cb.CatBoostClassifier(
-        iterations=200, depth=TUNED_PARAMS["model_parameters"]["cb_depth"],
-        learning_rate=TUNED_PARAMS["model_parameters"]["cb_lr"], verbose=0, random_seed=42
-    ).fit(train_leg[leg_features], train_leg["target_outcome"])
+    from models.correlation_models import HybridElectionsModel
+    hybrid_model = HybridElectionsModel(exec_features, leg_features, exec_params, leg_params)
+    hybrid_model.fit(df_known)
     
     print("Packaging and writing cached data dictionary to pickle...")
     cache_data = {
@@ -340,10 +244,7 @@ def main():
         "mean_ridge": mean_ridge,
         "mean_xgb": mean_xgb,
         "mean_ensemble": mean_ensemble,
-        "ex_xgb": ex_xgb,
-        "ex_cb": ex_cb,
-        "leg_xgb": leg_xgb,
-        "leg_cb": leg_cb,
+        "hybrid_model": hybrid_model,
         "preds": preds,
         "c_names": c_names,
         "vdem_map_data": vdem_map_data

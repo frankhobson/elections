@@ -30,14 +30,18 @@
         "cb_lr": 0.03
     },
     "executive_model": {
-        "xgb_weight": 0.5,
+        "xgb_weight": 0.7,
         "T": 1.15,
-        "classification_threshold": 0.515
+        "classification_threshold": 0.515,
+        "classification_threshold_clean": 0.51,
+        "classification_threshold_unclean": 0.53
     },
     "legislative_model": {
-        "xgb_weight": 0.5,
+        "xgb_weight": 0.9,
         "T": 1.15,
-        "classification_threshold": 0.515
+        "classification_threshold": 0.515,
+        "classification_threshold_clean": 0.51,
+        "classification_threshold_unclean": 0.49
     },
     "classification_threshold": 0.515
 }
